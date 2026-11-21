@@ -38,6 +38,7 @@ public sealed class RelayEngine : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        Hub?.KickAll("stop");
         if (_viewer != null) { await _viewer.DisposeAsync(); _viewer = null; }
         if (_source != null) { await _source.DisposeAsync(); _source = null; }
         _monitor?.Dispose(); _monitor = null;

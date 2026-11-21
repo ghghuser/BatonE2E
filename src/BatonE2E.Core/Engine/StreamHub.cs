@@ -45,6 +45,16 @@ public sealed class StreamHub
         }
     }
 
+    /// <summary>全視聴者を切断（終了時）。</summary>
+    public void KickAll(string reason)
+    {
+        lock (_lock)
+        {
+            foreach (var v in _viewers) v.Kick(reason);
+            _viewers.Clear();
+        }
+    }
+
     public void RemoveViewer(ViewerConnection v)
     {
         lock (_lock) _viewers.Remove(v);

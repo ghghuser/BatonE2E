@@ -6,6 +6,7 @@ using BatonE2E.Core.Logging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -30,6 +31,7 @@ internal sealed class ViewerServer : IAsyncDisposable
 
         var b = WebApplication.CreateSlimBuilder(new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory });
         b.Logging.ClearProviders();
+        b.Services.Configure<HostOptions>(h => h.ShutdownTimeout = TimeSpan.FromSeconds(3));
         b.WebHost.ConfigureKestrel(k =>
         {
             k.AddServerHeader = false;
