@@ -6,6 +6,8 @@ const [base, pw, title] = process.argv.slice(2);
 const browser = await chromium.launch({ headless: true, args: ['--autoplay-policy=no-user-gesture-required'] });
 const page = await browser.newPage();
 const logs = [];
+page.on('requestfailed', (r) => logs.push('requestfailed: ' + r.url()));
+page.on('websocket', (w) => { logs.push('ws open: ' + w.url()); w.on('framereceived', (f) => logs.push('ws frame ' + (f.payload.length ?? '?'))); w.on('close', () => logs.push('ws close')); });
 page.on('console', (m) => logs.push('console: ' + m.text()));
 page.on('pageerror', (e) => logs.push('pageerror: ' + e.message));
 let failed = false;
@@ -23,6 +25,7 @@ try {
   try { await page.waitForFunction(() => document.getElementById('err').textContent.includes('パスワードが違います'), null, { timeout: 30000 }); }
   catch { wrong = false; }
   check('誤パスワードで「パスワードが違います」を表示', wrong);
+  if (!wrong) console.log('  診断: ' + JSON.stringify(await page.evaluate(() => ({ status: document.getElementById('status').textContent, err: document.getElementById('err').textContent, ready: document.readyState }))));
 
   // 正しいパスワード → 再生位置が進む
   await page.reload();
