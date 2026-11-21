@@ -3,8 +3,10 @@ on:
   push:
     branches:
       - main
+    paths-ignore: ['docs/**', '**.md', '**.txt']
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore: ['docs/**', '**.md', '**.txt']
 jobs:
   build:
     name: Build and analyze
@@ -43,5 +45,5 @@ jobs:
         shell: powershell
         run: |
           ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"ghghuser_BatonE2E" /o:"ghghuser" /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
-          dotnet build
+          dotnet build src/BatonE2E.sln
           ${{ runner.temp }}\scanner\dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"

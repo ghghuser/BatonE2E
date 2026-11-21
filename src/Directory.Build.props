@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12.0</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- 版数: ビルド番号 N から 1.0.(N÷100の商).(余り) を作成 -->
+    <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
+    <VerMinor>$([System.Math]::Floor($([MSBuild]::Divide($(BuildNumber), 100))))</VerMinor>
+    <VerPatch>$([MSBuild]::Modulo($(BuildNumber), 100))</VerPatch>
+    <Version>1.0.$(VerMinor).$(VerPatch)</Version>
+    <AssemblyVersion>1.0.$(VerMinor).$(VerPatch)</AssemblyVersion>
+    <FileVersion>1.0.$(VerMinor).$(VerPatch)</FileVersion>
+    <InformationalVersion>1.0.$(VerMinor).$(VerPatch)</InformationalVersion>
+    <Product>BatonE2E</Product>
+    <Copyright>Copyright (c) 2026 ghghuser. 商用利用禁止・再配布禁止</Copyright>
+  </PropertyGroup>
+</Project>

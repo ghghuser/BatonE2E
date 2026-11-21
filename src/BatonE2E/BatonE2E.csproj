@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>BatonE2E</AssemblyName>
+    <RootNamespace>BatonE2E</RootNamespace>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\assets\BatonE2E.ico')">
+    <ApplicationIcon>$(MSBuildThisFileDirectory)..\..\assets\BatonE2E.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BatonE2E.Core\BatonE2E.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 言語ファイルはexeの横に置き、テキストエディタで修正可能にする -->
+    <Content Include="Lang\*.ini" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

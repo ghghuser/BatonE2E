@@ -1,0 +1,22 @@
+BatonE2E License (商用利用禁止・再配布禁止 / Non-commercial, no redistribution)
+
+Copyright (c) 2026 ghghuser. All rights reserved.
+
+【日本語】
+1. 本ソフトウェアおよびソースコードの個人利用・私的な実験目的での使用を許可する。
+2. 商用利用（収益を得る目的での使用、業務での使用を含む）を禁止する。
+3. 本ソフトウェア、ソースコード、およびその改変物の再配布・公開・転載を禁止する。
+4. 本ソフトウェアは現状有姿で提供し、動作や安全性について一切保証しない。
+   利用により生じた損害について、著作権者は責任を負わない。
+5. 第三者の部品（.NET、FFmpeg、NAudio等）は、それぞれのライセンスに従う。
+   本ライセンスは、それらの権利を制限しない。
+
+[English]
+1. Personal, private, experimental use is permitted.
+2. Commercial use (including use for profit or business) is prohibited.
+3. Redistribution, publication, or reposting of the software, its source
+   code, or modified versions is prohibited.
+4. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. The
+   copyright holder is not liable for any damages arising from its use.
+5. Third-party components remain under their own licenses; this license
+   does not restrict them.
