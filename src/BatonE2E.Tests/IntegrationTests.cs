@@ -102,6 +102,13 @@ internal static class IntegrationTests
         T.Check("結合: ICE/1.0 音声が一致", v.Audio().SequenceEqual(d1.Concat(d2).Concat(d3)));
         T.Check("結合: 形式がmp3へ戻る通知", v.Has(FrameType.FormatChange, "audio/mpeg"));
 
+        // (d) oddcastの実機で確認した形式: SOURCE /mount ICE/1.0（要求行が3語。認証はBasicヘッダー）
+        var d4 = Data(6_000);
+        var r4 = await SendAsync(o.SourcePort, $"SOURCE /m ICE/1.0\r\ncontent-type: audio/mpeg\r\nAuthorization: Basic {basic}\r\nice-name: test\r\n\r\n", d4);
+        T.Check("結合: SOURCE /mount ICE/1.0（3語形式）応答200", r4.StartsWith("HTTP/1.0 200"));
+        await WaitAsync(() => v.Audio().Length >= d1.Length + d2.Length + d3.Length + d4.Length);
+        T.Check("結合: SOURCE /mount ICE/1.0 音声が一致", v.Audio().SequenceEqual(d1.Concat(d2).Concat(d3).Concat(d4)));
+
         // 曲名更新
         var m = await SendAsync(o.SourcePort, $"GET /admin/metadata?mode=updinfo&mount=/m&song=%E6%9B%B2%E5%90%8D+A HTTP/1.0\r\nAuthorization: Basic {basic}\r\n\r\n", Array.Empty<byte>());
         T.Check("結合: メタデータ更新 応答200", m.StartsWith("HTTP/1.0 200"));

@@ -34,8 +34,10 @@ internal sealed class SourceRequest
             req.Target = p[^2];
             req.Proto = p[^1];
         }
-        else if (p.Length == 3 && p[2].StartsWith("HTTP/", StringComparison.Ordinal))
+        else if (p.Length == 3 && (p[2].StartsWith("HTTP/", StringComparison.Ordinal)
+                                   || p[2].StartsWith("ICE/", StringComparison.Ordinal)))
         {
+            // PUT /mount HTTP/1.1、SOURCE /mount HTTP/1.0、SOURCE /mount ICE/1.0（oddcastで確認。認証はBasicヘッダー）
             req.Target = p[1]; req.Proto = p[2];
         }
         else { req.Invalid = true; return req; }
@@ -50,6 +52,13 @@ internal sealed class SourceRequest
         }
         req.Invalid = true;   // ヘッダーが多すぎる
         return req;
+    }
+
+    /// <summary>受信したヘッダー名の一覧（値は含めない）。認証情報が見つからない場合の診断ログ用。</summary>
+    public string HeaderNames()
+    {
+        var t = string.Join(", ", Headers.Keys);
+        return t.Length == 0 ? "-" : t.Length > 200 ? t[..200] : t;
     }
 
     public string? Header(string name) => Headers.TryGetValue(name, out var v) ? v : null;

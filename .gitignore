@@ -7,3 +7,5 @@ config.json
 *.log
 *.pfx
 *.cer
+node_modules/
+package-lock.json

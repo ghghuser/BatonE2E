@@ -150,7 +150,7 @@ internal sealed partial class SourceListener : IAsyncDisposable
                 : req.CheckBasic(_o.SourcePassword, _o.AcceptAnySourceUser, out user);
             if (ar != AuthResult.Ok)
             {
-                LogAuthFail(ar, user);
+                LogAuthFail(ar, user, req);
                 await WriteAsync(stream, "HTTP/1.0 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"BatonE2E\"\r\n\r\n", ct);
                 return;
             }
@@ -192,7 +192,7 @@ internal sealed partial class SourceListener : IAsyncDisposable
     }
 
     /// <summary>認証失敗の理由別ログ。受け取ったユーザー名は出すが、パスワードは出さない。</summary>
-    private static void LogAuthFail(AuthResult r, string user)
+    private static void LogAuthFail(AuthResult r, string user, SourceRequest req)
     {
         var key = r switch
         {
@@ -200,7 +200,7 @@ internal sealed partial class SourceListener : IAsyncDisposable
             AuthResult.BadPassword => "log.source.auth.pass",
             _ => "log.source.auth.none",
         };
-        AppLog.Warn(Loc.Get(key, Sanitize(user)));
+        AppLog.Warn(Loc.Get(key, Sanitize(user), Sanitize(req.HeaderNames())));
     }
 
     private async Task<long> PumpAsync(IBodyReader body, CancellationToken ct)
@@ -241,7 +241,7 @@ internal sealed partial class SourceListener : IAsyncDisposable
         var ar = req.CheckBasic(_o.SourcePassword, _o.AcceptAnySourceUser, out var au);
         if (ar != AuthResult.Ok)
         {
-            LogAuthFail(ar, au);
+            LogAuthFail(ar, au, req);
             await WriteAsync(stream, "HTTP/1.0 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"BatonE2E\"\r\n\r\n", ct);
             return;
         }
