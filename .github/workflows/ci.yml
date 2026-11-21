@@ -86,7 +86,8 @@ jobs:
           ffmpeg -loglevel error -re -stream_loop -1 -f lavfi -i "sine=frequency=440" -t 120 -ar 44100 -ac 2 -b:a 96k \
             -f mp3 -content_type audio/mpeg "icecast://source:$SRC_PASS@127.0.0.1:$SRC_PORT/stream" &
           fpid=$!; sleep 2
-          NODE_PATH="$RUNNER_TEMP/work/node_modules" node "$GITHUB_WORKSPACE/src/BatonE2E.Tests/integration/browser.mjs" \
+          cp "$GITHUB_WORKSPACE/src/BatonE2E.Tests/integration/browser.mjs" .
+          node browser.mjs \
             "http://127.0.0.1:$VIEW_PORT/" "$VIEW_PASS" "テスト配信"; rc=$?
           kill $fpid 2>/dev/null || true; exit $rc
       - name: アプリのログ表示
