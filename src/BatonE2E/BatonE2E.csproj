@@ -3,10 +3,7 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>BatonE2E</AssemblyName>
     <RootNamespace>BatonE2E</RootNamespace>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- win-x64・単体exe化は発行コマンド側で指定（Linux CIでも dotnet build/run できるようにするため） -->
   </PropertyGroup>
   <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\assets\BatonE2E.ico')">
     <ApplicationIcon>$(MSBuildThisFileDirectory)..\..\assets\BatonE2E.ico</ApplicationIcon>

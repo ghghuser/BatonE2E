@@ -30,9 +30,75 @@ jobs:
         if: failure()
         run: echo "::error::テストが失敗。『自己テスト』の段で落ちたならログの『NG』行がCore/暗号の不具合。『相互運用テスト』の段で落ちたなら、C#とブラウザ(WebCrypto)で鍵導出・nonce・AADのどれかが食い違っている。"
 
+  integration:
+    name: 結合テスト（実アプリ＋ffmpeg/curl/生ソケット＋Chromium）
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      SRC_PORT: '18000'
+      VIEW_PORT: '18080'
+      SRC_PASS: 'src-test-pass'
+      VIEW_PASS: 'view-test-pass'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-dotnet@v4 # TODO: SHA固定
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4 # TODO: SHA固定
+        with:
+          node-version: '22'
+      - name: ffmpeg準備
+        run: |
+          which ffmpeg curl || (sudo apt-get update && sudo apt-get install -y ffmpeg curl)
+          ffmpeg -version | head -1
+      - name: アプリをビルド
+        run: dotnet build src/BatonE2E/BatonE2E.csproj -c Release -o "$RUNNER_TEMP/app" -p:BuildNumber=${{ github.run_number }}
+      - name: 試験用MP3を作成（再生6秒・byte一致比較用にXing/ID3なし）
+        run: |
+          mkdir -p "$RUNNER_TEMP/work"
+          ffmpeg -loglevel error -f lavfi -i "sine=frequency=440:duration=6" -ar 44100 -ac 2 -b:a 96k \
+            -write_xing 0 -id3v2_version 0 -f mp3 "$RUNNER_TEMP/work/test.mp3"
+          ls -l "$RUNNER_TEMP/work/test.mp3"
+      - name: アプリ起動
+        run: |
+          nohup dotnet "$RUNNER_TEMP/app/BatonE2E.dll" --source-port $SRC_PORT --view-port $VIEW_PORT \
+            --source-password "$SRC_PASS" --password "$VIEW_PASS" --title "テスト配信" \
+            --cert-dir "$RUNNER_TEMP/work/cert" > "$RUNNER_TEMP/work/app.log" 2>&1 &
+          for i in $(seq 1 60); do curl -fs "http://127.0.0.1:$VIEW_PORT/" >/dev/null && exit 0; sleep 0.5; done
+          echo "::error::アプリが起動しない"; cat "$RUNNER_TEMP/work/app.log"; exit 1
+      - name: 'シナリオ（送信→受信→復号→元MP3とバイト一致）'
+        env:
+          WORK: ${{ runner.temp }}/work
+          CERT_DIR: ${{ runner.temp }}/work/cert
+        run: |
+          export TEST_MP3="$WORK/test.mp3"
+          S=src/BatonE2E.Tests/integration/scenario.sh
+          fail=0
+          for n in curl-put curl-chunked ffmpeg-icecast raw-source10 raw-ice4 raw-ice3 tls12; do
+            echo "::group::$n"; bash $S $n || fail=1; echo "::endgroup::"
+            sleep 1
+          done
+          exit $fail
+      - name: Chromiumで実再生
+        run: |
+          cd "$RUNNER_TEMP/work" && npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          ffmpeg -loglevel error -re -stream_loop -1 -f lavfi -i "sine=frequency=440" -t 120 -ar 44100 -ac 2 -b:a 96k \
+            -f mp3 -content_type audio/mpeg "icecast://source:$SRC_PASS@127.0.0.1:$SRC_PORT/stream" &
+          fpid=$!; sleep 2
+          NODE_PATH="$RUNNER_TEMP/work/node_modules" node "$GITHUB_WORKSPACE/src/BatonE2E.Tests/integration/browser.mjs" \
+            "http://127.0.0.1:$VIEW_PORT/" "$VIEW_PASS" "テスト配信"; rc=$?
+          kill $fpid 2>/dev/null || true; exit $rc
+      - name: アプリのログ表示
+        if: always()
+        run: cat "$RUNNER_TEMP/work/app.log" || true
+      - name: 失敗時の説明
+        if: failure()
+        run: echo "::error::結合テスト失敗。どのシナリオ名で落ちたか（curl-put/curl-chunked/ffmpeg-icecast/raw-*/tls12/Chromium）とアプリのログを確認。シナリオ名ごとに送信形式が異なる。"
+
   build:
     name: ビルド（Windows exe）
-    needs: test
+    needs: [test, integration]
     runs-on: windows-latest
     permissions:
       contents: read
@@ -45,7 +111,8 @@ jobs:
       - name: 発行（単体exe）
         shell: bash
         run: |
-          dotnet publish src/BatonE2E/BatonE2E.csproj -c Release -r win-x64 \
+          dotnet publish src/BatonE2E/BatonE2E.csproj -c Release -r win-x64 --self-contained \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
             -p:BuildNumber=${{ github.run_number }} -o out/BatonE2E
           cp LICENSE out/BatonE2E/LICENSE.txt
           ls -la out/BatonE2E out/BatonE2E/Lang
