@@ -20,11 +20,15 @@ jobs:
       - uses: actions/setup-dotnet@v4 # TODO: SHA固定
         with:
           dotnet-version: '8.0.x'
-      - name: 自己テスト実行
-        run: dotnet run --project src/BatonE2E.Tests -c Release -- "$PWD/src/BatonE2E/Lang/ja.ini"
+      - name: 自己テスト実行（Core・暗号）と試験データ出力
+        run: >
+          dotnet run --project src/BatonE2E.Tests -c Release --
+          --ini "$PWD/src/BatonE2E/Lang/ja.ini" --emit-vectors "$RUNNER_TEMP/vectors.json"
+      - name: 暗号の相互運用テスト（C#で暗号化 → Node.js WebCryptoで復号）
+        run: node src/BatonE2E.Tests/interop/verify.mjs "$RUNNER_TEMP/vectors.json"
       - name: 失敗時の説明
         if: failure()
-        run: echo "::error::自己テストが失敗。ログの『NG』行が落ちた項目。"
+        run: echo "::error::テストが失敗。『自己テスト』の段で落ちたならログの『NG』行がCore/暗号の不具合。『相互運用テスト』の段で落ちたなら、C#とブラウザ(WebCrypto)で鍵導出・nonce・AADのどれかが食い違っている。"
 
   build:
     name: ビルド（Windows exe）

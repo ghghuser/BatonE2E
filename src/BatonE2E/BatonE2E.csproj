@@ -7,7 +7,6 @@
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\assets\BatonE2E.ico')">
     <ApplicationIcon>$(MSBuildThisFileDirectory)..\..\assets\BatonE2E.ico</ApplicationIcon>
