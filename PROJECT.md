@@ -13,8 +13,8 @@ Core（UI・OS非依存の純ロジック）とアプリ本体を分離。コー
 
 ## 段階（詳細仕様は docs/BatonE2E.txt の依頼書）
 - P0 骨組み・CI・ビルド（完了）
-- P1 暗号モジュールと相互運用テスト（C#→Node WebCrypto）← 現在
-- P2 source受け口＋WebSocket配信＋視聴ページ
+- P1 暗号モジュールと相互運用テスト（C#→Node WebCrypto）（完了）
+- P2 source受け口＋WebSocket配信＋視聴ページ ← 現在（P2a: 平文source／P2b: source受け口のTLS）
 - P3 結合テスト・再生テスト
 - P3.5 GUI（WPF。かがみんv2のように操作・管理。エンジンはUIを知らない作りにする）
 - P4 config自動生成・README・Releases
@@ -39,8 +39,15 @@ Core（UI・OS非依存の純ロジック）とアプリ本体を分離。コー
 - 連番0 = 確認ブロック（0x00 + "E2ERADIO1"）。1以降は全種別で共通の単調増加。受信側は最初に受けた値から+1を要求。
 - 塩とsidはセッション（起動）ごとに乱数。
 
+## エンジン構成（src/BatonE2E.Core/Engine）
+- SourceListener: 127.0.0.1のみ、生TCP。PUT / SOURCE / ICE/1.0、chunked、Expect: 100-continue、曲名GET。後から繋いだ方に切替（takeover）。
+- StreamHub: 入力を暗号化して全視聴者へ配信（暗号化と配布は同一ロック）。暗号化結果を自分で復号して照合する自己検査あり（Stats.CheckOk/CheckNg）。
+- ViewerServer: Kestrel（共有フレームワーク）。GET / = 視聴ページ（exeの横のviewer.htmlがあれば優先）、GET /ws = WebSocket。
+- 視聴者は有限キュー。溢れた（遅い）視聴者は切断。上限人数超過は503。
+- 暗号化の確認表示: コンソールの統計行に「暗号化の自己検査 OK/NG」を10秒ごとに出力。
+
 ## 現在の状態
-P0完了（実機確認済み）。P1: 暗号モジュール・自己テスト・C#→Node相互運用テストを作成。Actionsの結果待ち。
+P0・P1完了。P2a: エンジン・視聴ページ・コンソール起動・C#内の結合テストを作成。Actionsの結果待ち。視聴ページ（JS）は実ブラウザでの検証が未実施（P3でPlaywright）。
 
 ## バックログ
 - アイコン（assets/BatonE2E.ico）／英語 Lang/en.ini／設定のバックアップ機構／ダークテーマ（GUI段階）

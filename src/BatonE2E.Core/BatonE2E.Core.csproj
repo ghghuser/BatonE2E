@@ -1,2 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- 共有フレームワーク（追加のNuGet部品ではない）。Kestrel/WebSocketを使用 -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <EmbeddedResource Include="Web\viewer.html" LogicalName="viewer.html" />
+  </ItemGroup>
 </Project>

@@ -1,0 +1,152 @@
+using System.Net;
+using System.Net.WebSockets;
+using System.Reflection;
+using System.Text;
+using BatonE2E.Core.Logging;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+namespace BatonE2E.Core.Engine;
+
+/// <summary>視聴用のHTTPサーバー（Kestrel）。GET / で視聴ページ、GET /ws でWebSocket。</summary>
+internal sealed class ViewerServer : IAsyncDisposable
+{
+    private static readonly TimeSpan SendTimeout = TimeSpan.FromSeconds(10);
+    private readonly WebApplication _app;
+    private readonly EngineOptions _o;
+    private readonly StreamHub _hub;
+    private string? _embedded;
+
+    private ViewerServer(WebApplication app, EngineOptions o, StreamHub hub) { _app = app; _o = o; _hub = hub; }
+
+    public static async Task<ViewerServer> StartAsync(EngineOptions o, StreamHub hub)
+    {
+        var ip = IPAddress.Parse(o.ViewBind);
+        if (!IPAddress.IsLoopback(ip) && !o.AllowExternalBind)
+            throw new InvalidOperationException("external-bind-not-allowed");
+
+        var b = WebApplication.CreateSlimBuilder(new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory });
+        b.Logging.ClearProviders();
+        b.WebHost.ConfigureKestrel(k =>
+        {
+            k.AddServerHeader = false;
+            k.Limits.MaxRequestBodySize = 1024;
+            k.Listen(ip, o.ViewPort);
+        });
+        var app = b.Build();
+        var me = new ViewerServer(app, o, hub);
+        app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20) });
+        app.MapGet("/", me.ServePageAsync);
+        app.MapGet("/ws", me.HandleSocketAsync);
+        await app.StartAsync();
+        AppLog.Info(Loc.Get("log.view.listen", o.ViewBind, o.ViewPort));
+        return me;
+    }
+
+    private async Task ServePageAsync(HttpContext c)
+    {
+        var r = c.Response;
+        r.ContentType = "text/html; charset=utf-8";
+        r.Headers.CacheControl = "no-store";
+        r.Headers["X-Content-Type-Options"] = "nosniff";
+        r.Headers["Referrer-Policy"] = "no-referrer";
+        r.Headers["Content-Security-Policy"] =
+            "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
+            "connect-src 'self' ws: wss:; media-src blob: mediastream:; base-uri 'none'; form-action 'none'";
+        await r.WriteAsync(LoadPage());
+    }
+
+    private string LoadPage()
+    {
+        var file = _o.ViewerPageFile ?? Path.Combine(AppContext.BaseDirectory, "viewer.html");
+        if (File.Exists(file)) return File.ReadAllText(file, Encoding.UTF8);
+        if (_embedded != null) return _embedded;
+        using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("viewer.html")
+                      ?? throw new InvalidOperationException("viewer-page-missing");
+        using var rd = new StreamReader(s, Encoding.UTF8);
+        return _embedded = rd.ReadToEnd();
+    }
+
+    private async Task HandleSocketAsync(HttpContext ctx)
+    {
+        if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }
+        var remote = ctx.Connection.RemoteIpAddress?.ToString() ?? "?";
+        var v = _hub.TryAddViewer(_o.ViewerQueue, remote);
+        if (v == null)
+        {
+            AppLog.Warn(Loc.Get("log.viewer.full", _o.MaxViewers, remote));
+            ctx.Response.StatusCode = 503;
+            return;
+        }
+        using var ws = await ctx.WebSockets.AcceptWebSocketAsync();
+        AppLog.Info(Loc.Get("log.viewer.connect", remote, _hub.ViewerCount));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
+        var recv = Task.Run(() => DrainIncomingAsync(ws, cts));
+        try
+        {
+            await SendAsync(ws, Encoding.UTF8.GetBytes(v.HeaderJson), WebSocketMessageType.Text, cts.Token);
+            await SendAsync(ws, v.Confirm, WebSocketMessageType.Binary, cts.Token);
+            await foreach (var frame in v.Reader.ReadAllAsync(cts.Token))
+            {
+                if (v.Kicked) break;
+                await SendAsync(ws, frame, WebSocketMessageType.Binary, cts.Token);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (WebSocketException) { }
+        finally
+        {
+            cts.Cancel();
+            _hub.RemoveViewer(v);
+            await recv;
+            await CloseQuietlyAsync(ws, v.Kicked);
+            AppLog.Info(Loc.Get("log.viewer.disconnect", remote, _hub.ViewerCount));
+        }
+    }
+
+    /// <summary>送信に時間がかかる（遅い）視聴者は、タイムアウトで切断する。</summary>
+    private static async Task SendAsync(WebSocket ws, byte[] data, WebSocketMessageType type, CancellationToken ct)
+    {
+        using var t = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        t.CancelAfter(SendTimeout);
+        await ws.SendAsync(data.AsMemory(), type, true, t.Token);
+    }
+
+    /// <summary>視聴者からの受信は使わない。閉じ要求の検出だけ行う。</summary>
+    private static async Task DrainIncomingAsync(WebSocket ws, CancellationTokenSource cts)
+    {
+        var buf = new byte[256];
+        try
+        {
+            while (!cts.IsCancellationRequested)
+            {
+                var r = await ws.ReceiveAsync(buf.AsMemory(), cts.Token);
+                if (r.MessageType == WebSocketMessageType.Close) break;
+            }
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException) { }
+        cts.Cancel();
+    }
+
+    private static async Task CloseQuietlyAsync(WebSocket ws, bool slow)
+    {
+        try
+        {
+            if (ws.State is WebSocketState.Open or WebSocketState.CloseReceived)
+            {
+                using var t = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                await ws.CloseAsync(slow ? WebSocketCloseStatus.PolicyViolation : WebSocketCloseStatus.NormalClosure, slow ? "slow" : "", t.Token);
+            }
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _app.StopAsync();
+        await _app.DisposeAsync();
+    }
+}
