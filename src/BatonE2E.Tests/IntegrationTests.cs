@@ -13,7 +13,7 @@ internal static class IntegrationTests
     private const string ViewPw = "view-passphrase-0123456789";
     private const string SrcPw = "src-secret";
 
-    private sealed class Viewer
+    internal sealed class Viewer
     {
         public readonly List<(FrameType type, byte[] data)> Frames = new();
         public string? Failure;
@@ -64,6 +64,7 @@ internal static class IntegrationTests
         {
             SourcePort = FreePort(), ViewPort = FreePort(), SourcePassword = SrcPw, ViewPassword = ViewPw,
             Iterations = 100_000, ChunkSize = 1024, MaxViewers = 2, Mount = "/m",
+            CertDir = Path.Combine(Path.GetTempPath(), "baton-it-" + Guid.NewGuid().ToString("N")),
         };
         await using var eng = new RelayEngine(o);
         await eng.StartAsync();
@@ -133,13 +134,14 @@ internal static class IntegrationTests
         // 視聴ページ
         using var http = new HttpClient();
         var page = await http.GetStringAsync($"http://127.0.0.1:{o.ViewPort}/");
-        T.Check("結合: 視聴ページが配信される", page.Contains("<title>BatonE2E</title>") && page.Contains("E2ERADIO1"));
+        T.Check("結合: 視聴ページが配信される", page.Contains("<title>ライブ配信</title>") && !page.Contains("BatonE2E") && page.Contains("E2ERADIO1"));
 
+        try { Directory.Delete(o.CertDir!, true); } catch (IOException) { }
         try { await v.Ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None); } catch (WebSocketException) { }
         _ = vtask;
     }
 
-    private static byte[] Chunked(byte[] d)
+    internal static byte[] Chunked(byte[] d)
     {
         var ms = new MemoryStream();
         var sizes = new[] { 1, 700, 4096, 333, 8000 };
@@ -155,7 +157,7 @@ internal static class IntegrationTests
     }
 
     /// <summary>ヘッダーを送り、応答の先頭を読み、本文を送って接続を閉じる。応答の文字列を返す。</summary>
-    private static async Task<string> SendAsync(int port, string head, byte[] body)
+    internal static async Task<string> SendAsync(int port, string head, byte[] body)
     {
         using var c = new TcpClient();
         await c.ConnectAsync("127.0.0.1", port);
@@ -170,13 +172,13 @@ internal static class IntegrationTests
         return resp;
     }
 
-    private static async Task WaitAsync(Func<bool> cond, int ms = 10_000)
+    internal static async Task WaitAsync(Func<bool> cond, int ms = 10_000)
     {
         var end = DateTime.UtcNow.AddMilliseconds(ms);
         while (!cond() && DateTime.UtcNow < end) await Task.Delay(50);
     }
 
-    private static int FreePort()
+    internal static int FreePort()
     {
         var l = new TcpListener(System.Net.IPAddress.Loopback, 0);
         l.Start();

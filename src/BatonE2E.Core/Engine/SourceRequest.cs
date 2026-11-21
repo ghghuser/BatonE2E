@@ -3,6 +3,8 @@ using System.Text;
 
 namespace BatonE2E.Core.Engine;
 
+public enum AuthResult { Ok, NoHeader, BadUser, BadPassword }
+
 /// <summary>source接続の先頭部（要求行とヘッダー）。PUT / SOURCE / 旧形式 SOURCE pass /mount ICE/1.0。</summary>
 internal sealed class SourceRequest
 {
@@ -52,20 +54,23 @@ internal sealed class SourceRequest
 
     public string? Header(string name) => Headers.TryGetValue(name, out var v) ? v : null;
 
-    /// <summary>Basic認証（ユーザー名 source）の検証。</summary>
-    public bool CheckBasic(string expectedPassword)
+    /// <summary>Basic認証の検証（ユーザー名 source）。失敗理由を区別して返す。受け取ったユーザー名は診断ログ用に user へ返す。</summary>
+    public AuthResult CheckBasic(string expectedPassword, bool anyUser, out string user)
     {
+        user = "";
         var h = Header("Authorization");
-        if (h == null || !h.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase)) return false;
+        if (h == null || !h.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase)) return AuthResult.NoHeader;
         string text;
         try { text = Encoding.UTF8.GetString(Convert.FromBase64String(h[6..].Trim())); }
-        catch (FormatException) { return false; }
+        catch (FormatException) { return AuthResult.NoHeader; }
         var i = text.IndexOf(':');
-        if (i < 0) return false;
-        // ユーザー名とパスワードの両方を、判定結果が時間差に出ない比較で検査
-        var userOk = SecretEquals(text[..i], "source");
+        if (i < 0) return AuthResult.NoHeader;
+        user = text[..i];
+        // 判定結果が時間差に出ない比較で検査（パスワードは常に必須）
+        var userOk = anyUser | SecretEquals(user, "source");
         var passOk = SecretEquals(text[(i + 1)..], expectedPassword);
-        return userOk & passOk;
+        if (!passOk) return AuthResult.BadPassword;
+        return userOk ? AuthResult.Ok : AuthResult.BadUser;
     }
 
     public static bool SecretEquals(string a, string b)

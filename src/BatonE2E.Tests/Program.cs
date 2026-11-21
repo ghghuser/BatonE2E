@@ -8,6 +8,7 @@ var ini = Opt("--ini") ?? Path.Combine(AppContext.BaseDirectory, "..", "..", "..
 CoreTests.Run(ini);
 CryptoTests.Run();
 await IntegrationTests.RunAsync();
+await TlsTests.RunAsync();
 
 var vec = Opt("--emit-vectors");
 if (vec != null) Vectors.Emit(vec);

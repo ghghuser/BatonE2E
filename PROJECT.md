@@ -14,7 +14,7 @@ Core（UI・OS非依存の純ロジック）とアプリ本体を分離。コー
 ## 段階（詳細仕様は docs/BatonE2E.txt の依頼書）
 - P0 骨組み・CI・ビルド（完了）
 - P1 暗号モジュールと相互運用テスト（C#→Node WebCrypto）（完了）
-- P2 source受け口＋WebSocket配信＋視聴ページ ← 現在（P2a: 平文source／P2b: source受け口のTLS）
+- P2 source受け口＋WebSocket配信＋視聴ページ （P2a: 平文source 完了／P2b: source受け口のTLS ← 現在）
 - P3 結合テスト・再生テスト
 - P3.5 GUI（WPF。かがみんv2のように操作・管理。エンジンはUIを知らない作りにする）
 - P4 config自動生成・README・Releases
@@ -46,8 +46,14 @@ Core（UI・OS非依存の純ロジック）とアプリ本体を分離。コー
 - 視聴者は有限キュー。溢れた（遅い）視聴者は切断。上限人数超過は503。
 - 暗号化の確認表示: コンソールの統計行に「暗号化の自己検査 OK/NG」を10秒ごとに出力。
 
+## source受け口のTLS（P2b）
+- `SourceTls`: auto（既定。最初の1バイトが0x16ならTLS）/ on / off。TLS 1.2・1.3、最初から暗号化する方式のみ。
+- 証明書: RSA2048+SHA-256 自己署名、SAN=IP:127.0.0.1+DNS:localhost、10年。`tls/source.pfx`（秘密鍵、パスワードなし）と `source.cer`（公開部）に保存し、毎回は作り直さない。作り直しは期限切れまたは `--regen-cert` のみ（oddcast側の ServerTLSTrustedCert 行の削除が必要と警告）。起動時にSHA-256指紋を表示。
+- oddcast（Icecast2形式）の設定画面にユーザー名欄がない。通例は `source` 固定で送られる想定。認証失敗時は受信したユーザー名（パスワードは出さない）をログに出す。ユーザー名が違う場合の逃げ道として `--accept-any-source-user`（パスワードは必須のまま）。
+- 視聴ページの題名・見出しは `--title`（既定「ライブ配信」。アプリ名は出さない）。
+
 ## 現在の状態
-P0・P1完了。P2a: エンジン・視聴ページ・コンソール起動・C#内の結合テストを作成。Actionsの結果待ち。視聴ページ（JS）は実ブラウザでの検証が未実施（P3でPlaywright）。
+P0・P1完了。P2a完了（実機確認済み: 起動・視聴ページ表示・ログ）。P2b: TLS・診断ログ・題名設定を実装、Actionsの結果待ち。（以前のP2a: エンジン・視聴ページ・コンソール起動・C#内の結合テストを作成。）視聴ページ（JS）は実ブラウザでの検証が未実施（P3でPlaywright）。
 
 ## バックログ
 - アイコン（assets/BatonE2E.ico）／英語 Lang/en.ini／設定のバックアップ機構／ダークテーマ（GUI段階）

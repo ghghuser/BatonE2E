@@ -58,7 +58,7 @@ internal sealed class ViewerServer : IAsyncDisposable
         r.Headers["Content-Security-Policy"] =
             "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
             "connect-src 'self' ws: wss:; media-src blob: mediastream:; base-uri 'none'; form-action 'none'";
-        await r.WriteAsync(LoadPage());
+        await r.WriteAsync(LoadPage().Replace("{{TITLE}}", WebUtility.HtmlEncode(_o.PageTitle)));
     }
 
     private string LoadPage()

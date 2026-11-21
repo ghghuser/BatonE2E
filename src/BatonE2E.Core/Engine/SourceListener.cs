@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using BatonE2E.Core.Crypto;
@@ -24,7 +27,10 @@ internal sealed partial class SourceListener : IAsyncDisposable
     private Task? _loop;
     private CancellationTokenSource? _active;
 
-    public SourceListener(EngineOptions o, StreamHub hub, EngineStats st) { _o = o; _hub = hub; _st = st; }
+    private readonly X509Certificate2? _cert;
+
+    public SourceListener(EngineOptions o, StreamHub hub, EngineStats st, X509Certificate2? cert)
+    { _o = o; _hub = hub; _st = st; _cert = cert; }
 
     public void Start()
     {
@@ -51,12 +57,73 @@ internal sealed partial class SourceListener : IAsyncDisposable
     private async Task HandleAsync(TcpClient client)
     {
         using var _ = client;
-        CancellationTokenSource? mine = null;
         try
         {
             client.NoDelay = true;
             client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
-            using var stream = client.GetStream();
+            using var raw = client.GetStream();
+            var stream = await NegotiateAsync(client, raw);
+            if (stream == null) return;
+            try { await ServeAsync(stream); }
+            finally { if (!ReferenceEquals(stream, raw)) await stream.DisposeAsync(); }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException)
+        {
+            AppLog.Debug("source: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 接続の最初の1バイトで平文/TLSを判定（auto）。TLSなら最初から暗号化する方式（TLS 1.2/1.3）で待ち受ける。
+    /// 戻り値が null なら切断または失敗（理由はログに出力済み）。
+    /// </summary>
+    private async Task<Stream?> NegotiateAsync(TcpClient client, NetworkStream raw)
+    {
+        using var hc = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+        hc.CancelAfter(TimeSpan.FromSeconds(15));
+        bool tls;
+        if (_o.SourceTls == SourceTlsMode.On) tls = true;
+        else
+        {
+            var b = new byte[1];
+            var n = await client.Client.ReceiveAsync(b, SocketFlags.Peek, hc.Token);
+            if (n == 0) return null;
+            tls = b[0] == 0x16;
+            if (tls && _o.SourceTls == SourceTlsMode.Off)
+            {
+                AppLog.Warn(Loc.Get("log.tls.off.hint"));
+                return null;
+            }
+        }
+        if (!tls) return raw;
+        if (_cert == null) return null;
+        var ssl = new SslStream(raw, false);
+        try
+        {
+            await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
+            {
+                ServerCertificate = _cert,
+                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                ClientCertificateRequired = false,
+                CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
+            }, hc.Token);
+            AppLog.Info(Loc.Get("log.tls.connect", ssl.SslProtocol));
+            return ssl;
+        }
+        catch (Exception ex) when (ex is AuthenticationException or IOException or OperationCanceledException)
+        {
+            AppLog.Warn(Loc.Get("log.tls.handshake.fail", Sanitize(ex.InnerException?.Message ?? ex.Message)));
+            await ssl.DisposeAsync();
+            return null;
+        }
+    }
+
+    private async Task ServeAsync(Stream stream)
+    {
+        CancellationTokenSource? mine = null;
+        try
+        {
             var src = new BufferedSource(stream);
 
             SourceRequest? req;
@@ -77,11 +144,13 @@ internal sealed partial class SourceListener : IAsyncDisposable
             }
             if (req.Method == "GET") { await HandleAdminAsync(req, stream, ct); return; }
 
-            var ok = req.IceStyle ? SourceRequest.SecretEquals(req.IcePassword ?? "", _o.SourcePassword)
-                                  : req.CheckBasic(_o.SourcePassword);
-            if (!ok)
+            var user = "";
+            var ar = req.IceStyle
+                ? (SourceRequest.SecretEquals(req.IcePassword ?? "", _o.SourcePassword) ? AuthResult.Ok : AuthResult.BadPassword)
+                : req.CheckBasic(_o.SourcePassword, _o.AcceptAnySourceUser, out user);
+            if (ar != AuthResult.Ok)
             {
-                AppLog.Warn(Loc.Get("log.source.auth.fail", req.IceStyle ? "ICE/1.0" : req.Method));
+                LogAuthFail(ar, user);
                 await WriteAsync(stream, "HTTP/1.0 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"BatonE2E\"\r\n\r\n", ct);
                 return;
             }
@@ -99,7 +168,8 @@ internal sealed partial class SourceListener : IAsyncDisposable
 
             var mime = NormalizeMime(req.Header("Content-Type"));
             var agent = Sanitize(req.Header("User-Agent") ?? req.Header("ice-name") ?? "-");
-            AppLog.Info(Loc.Get("log.source.connect", req.IceStyle ? "ICE/1.0" : req.Method + " " + req.Proto, mime, agent));
+            var via = stream is SslStream ssl ? $" [TLS {ssl.SslProtocol}]" : "";
+            AppLog.Info(Loc.Get("log.source.connect", (req.IceStyle ? "ICE/1.0" : req.Method + " " + req.Proto) + via, mime, agent));
             if (mime != "audio/mpeg") AppLog.Info(Loc.Get("log.source.nonmp3", mime));
             _st.SourceActive = true; _st.SourceMime = mime;
             _hub.SetMime(mime);
@@ -119,6 +189,18 @@ internal sealed partial class SourceListener : IAsyncDisposable
             AppLog.Error(Loc.Get("log.error", ex.Message));
         }
         finally { EndSession(mine); }
+    }
+
+    /// <summary>認証失敗の理由別ログ。受け取ったユーザー名は出すが、パスワードは出さない。</summary>
+    private static void LogAuthFail(AuthResult r, string user)
+    {
+        var key = r switch
+        {
+            AuthResult.BadUser => "log.source.auth.user",
+            AuthResult.BadPassword => "log.source.auth.pass",
+            _ => "log.source.auth.none",
+        };
+        AppLog.Warn(Loc.Get(key, Sanitize(user)));
     }
 
     private async Task<long> PumpAsync(IBodyReader body, CancellationToken ct)
@@ -156,9 +238,10 @@ internal sealed partial class SourceListener : IAsyncDisposable
             await WriteAsync(stream, "HTTP/1.0 404 Not Found\r\n\r\n", ct);
             return;
         }
-        if (!req.CheckBasic(_o.SourcePassword))
+        var ar = req.CheckBasic(_o.SourcePassword, _o.AcceptAnySourceUser, out var au);
+        if (ar != AuthResult.Ok)
         {
-            AppLog.Warn(Loc.Get("log.source.auth.fail", "metadata"));
+            LogAuthFail(ar, au);
             await WriteAsync(stream, "HTTP/1.0 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"BatonE2E\"\r\n\r\n", ct);
             return;
         }

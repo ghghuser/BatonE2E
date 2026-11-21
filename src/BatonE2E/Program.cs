@@ -48,6 +48,11 @@ internal static class Program
             MaxViewers = int.Parse(Opt(args, "--max-viewers", "BATONE2E_MAX_VIEWERS") ?? "20"),
             SourcePassword = Opt(args, "--source-password", "BATONE2E_SOURCE_PASSWORD") ?? PassphraseGenerator.Generate(4, 4),
             ViewPassword = Opt(args, "--password", "BATONE2E_PASSWORD") ?? PassphraseGenerator.Generate(),
+            PageTitle = Opt(args, "--title", "BATONE2E_TITLE") ?? "ライブ配信",
+            CertDir = Opt(args, "--cert-dir", "BATONE2E_CERT_DIR"),
+            RegenCert = args.Contains("--regen-cert"),
+            AcceptAnySourceUser = args.Contains("--accept-any-source-user"),
+            SourceTls = Enum.Parse<SourceTlsMode>(Opt(args, "--source-tls", "BATONE2E_SOURCE_TLS") ?? "auto", true),
         };
 
         Console.WriteLine(AppInfo.Title);
@@ -62,7 +67,19 @@ internal static class Program
         Console.WriteLine("  " + Loc.Get("console.source.mount", o.Mount));
         Console.WriteLine("  " + Loc.Get("console.source.user"));
         Console.WriteLine("  " + Loc.Get("console.source.password", o.SourcePassword));
-        Console.WriteLine("  " + Loc.Get("console.source.tls"));
+        Console.WriteLine("  " + Loc.Get(o.SourceTls switch
+        {
+            SourceTlsMode.Off => "console.source.tls.off",
+            SourceTlsMode.On => "console.source.tls.on",
+            _ => "console.source.tls.auto",
+        }));
+        if (engine.SourceCertFingerprintColon != null)
+        {
+            Console.WriteLine("    " + Loc.Get("console.source.tls.fp", engine.SourceCertFingerprintColon));
+            Console.WriteLine("    " + Loc.Get("console.source.tls.cer", Path.Combine(engine.SourceCertDir ?? "", "source.cer")));
+            if (engine.SourceCertRegenerated) Console.WriteLine("    " + Loc.Get("log.tls.regen"));
+        }
+        if (o.AcceptAnySourceUser) Console.WriteLine(Loc.Get("console.warn.anyuser"));
         Console.WriteLine(Loc.Get("console.view.title"));
         Console.WriteLine("  " + Loc.Get("console.view.url", $"http://127.0.0.1:{o.ViewPort}/"));
         Console.WriteLine("  " + Loc.Get("console.view.tunnel"));
