@@ -53,7 +53,12 @@ Core（UI・OS非依存の純ロジック）とアプリ本体を分離。コー
 - 視聴ページの題名・見出しは `--title`（既定「ライブ配信」。アプリ名は出さない）。
 
 ## 現在の状態
-P0・P1完了。P2a完了（実機確認済み: 起動・視聴ページ表示・ログ）。P2b: TLS・診断ログ・題名設定を実装、Actionsの結果待ち。（以前のP2a: エンジン・視聴ページ・コンソール起動・C#内の結合テストを作成。）視聴ページ（JS）は実ブラウザでの検証が未実施（P3でPlaywright）。
+P0・P1・P2a・P2b完了。P3完了（CI緑）: 実アプリを起動し、curl(PUT/chunked)・ffmpeg(icecast)・生ソケット(SOURCE HTTP/1.0、SOURCE pw /m ICE/1.0、SOURCE /m ICE/1.0)・TLS1.2(指紋固定+SAN確認)で送信 → Node WebSocket受信側が復号 → 元MP3とバイト一致。Chromiumで視聴ページ実再生（currentTime進行、誤パスワード表示、題名にアプリ名なし）。
+- 実機で判明: oddcastは `SOURCE /stream ICE/1.0`（3語・Basic認証）を送る → P2b後に対応済み（実機再確認待ち）。oddcastのServer IP欄はIPのみ（ポートは別欄）。
+- 次: P3.5 WPF GUI（ダークテーマ、言語設定、設定バックアップ、かがみんv2風の直接操作）。
+
+## 作業メモ（中断・再開用。着手前に1行書き、完了で消す）
+- （現在なし）
 
 ## バックログ
 - アイコン（assets/BatonE2E.ico）／英語 Lang/en.ini／設定のバックアップ機構／ダークテーマ（GUI段階）
