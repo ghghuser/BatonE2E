@@ -22,6 +22,7 @@ public partial class MainWindow
         tbRateBan = null!, tbDeny = null!;
     private RadioButton rbLangJa = null!, rbLangEn = null!, rbTlsAuto = null!, rbTlsOn = null!, rbTlsOff = null!;
     private CheckBox chkAnyUser = null!, chkProxy = null!, chkLogFile = null!, chkTray = null!;
+    private TextBox tbSound = null!;
     private Button btnGenSrc = null!, btnGenView = null!, btnProfileLoad = null!, btnProfileSave = null!, btnProfileDelete = null!;
     private TextBox tbProfileName = null!;
     private ListBox lbProfiles = null!;
@@ -102,6 +103,12 @@ public partial class MainWindow
         Row("", chkLogFile, "gui.tip.logfile");
         chkTray = Check(Loc.Get("gui.set.tray"));
         Row("", chkTray, "gui.tip.tray");
+        tbSound = Txt(300);
+        var btnBrowse = new Button { Content = Loc.Get("gui.sound.browse"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
+        btnBrowse.Click += (_, _) => OnBrowseSound();
+        var btnTest = new Button { Content = Loc.Get("gui.sound.test"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
+        btnTest.Click += (_, _) => OnTestSound();
+        Row("gui.set.sound", HPanel(tbSound, btnBrowse, btnTest), "gui.tip.sound", "NotifySound");
 
         btnSave.Content = Loc.Get("gui.set.save");
         btnRestore.Content = Loc.Get("gui.set.restore");
@@ -302,6 +309,7 @@ public partial class MainWindow
         tbDeny.Text = s.DenyRules.Replace("\r", "").Replace("\n", "\r\n");
         chkLogFile.IsChecked = s.LogToFile;
         chkTray.IsChecked = s.MinimizeToTray;
+        tbSound.Text = s.NotifySound;
         _loading = false;
         UpdateDirty();
     }
@@ -338,6 +346,7 @@ public partial class MainWindow
             DenyRules = tbDeny.Text.Replace("\r", ""),
             LogToFile = chkLogFile.IsChecked == true,
             MinimizeToTray = chkTray.IsChecked == true,
+            NotifySound = tbSound.Text,
         };
         s.Normalize();
         issue = iss;

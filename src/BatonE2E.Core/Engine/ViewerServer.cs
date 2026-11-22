@@ -131,16 +131,19 @@ internal sealed class ViewerServer : IAsyncDisposable
         }
         using var ws = await ctx.WebSockets.AcceptWebSocketAsync();
         AppLog.Info(Loc.Get("log.viewer.connect", remote, _hub.ViewerCount));
+        _hub.Stats.RaiseViewerJoined(remote);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
         var recv = Task.Run(() => DrainIncomingAsync(ws, cts));
         try
         {
             await SendAsync(ws, Encoding.UTF8.GetBytes(v.HeaderJson), WebSocketMessageType.Text, cts.Token);
             await SendAsync(ws, v.Confirm, WebSocketMessageType.Binary, cts.Token);
+            _hub.Stats.AddBytesOut(v.Confirm.Length + v.HeaderJson.Length);
             await foreach (var frame in v.Reader.ReadAllAsync(cts.Token))
             {
                 if (v.Kicked) break;
                 await SendAsync(ws, frame, WebSocketMessageType.Binary, cts.Token);
+                _hub.Stats.AddBytesOut(frame.Length);
             }
         }
         catch (OperationCanceledException) { }

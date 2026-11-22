@@ -69,6 +69,8 @@ internal static class IntegrationTests
         };
         await using var eng = new RelayEngine(o);
         await eng.StartAsync();
+        var joined = 0;
+        eng.Stats.ViewerJoined += _ => Interlocked.Increment(ref joined);
 
         var v = new Viewer();
         var vtask = Task.Run(() => v.RunAsync(o.ViewPort, ViewPw));
@@ -127,6 +129,8 @@ internal static class IntegrationTests
 
         // 暗号化の自己検査・全体の健全性
         T.Check("結合: 全フレームで復号・連番検査が成功（失敗なし）", v.Failure == null);
+        T.Check("結合: 視聴者の接続イベントが1回通知される", Volatile.Read(ref joined) == 1);
+        T.Check("結合: 視聴者への送信量が統計に入る（音声の合計以上）", eng.Stats.BytesOut >= d1.Length + d2.Length + d3.Length + d4.Length);
         T.Check("結合: 自己検査が実行され、失敗0", eng.Stats.CheckOk > 0 && eng.Stats.CheckNg == 0);
 
         // 視聴者数の上限（MaxViewers=2: 1人目=v、2人目は可、3人目は拒否）

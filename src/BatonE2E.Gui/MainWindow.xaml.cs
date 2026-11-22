@@ -316,6 +316,8 @@ public partial class MainWindow : Window
             return;
         }
         _engine = eng;
+        _joinNotifier = new JoinNotifier();
+        eng.Stats.ViewerJoined += OnViewerJoined;
 
         _vSrvServer.Text = o.SourceBind == "0.0.0.0" ? Loc.Get("gui.val.anyaddr") : o.SourceBind;
         _vSrvPort.Text = o.SourcePort.ToString();
@@ -338,6 +340,7 @@ public partial class MainWindow : Window
     {
         var eng = _engine;
         _engine = null;
+        if (eng != null) eng.Stats.ViewerJoined -= OnViewerJoined;
         if (eng != null) await eng.DisposeAsync();
         AppLog.Info(Loc.Get("gui.log.stopped"));
         ShowStoppedValues();

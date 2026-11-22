@@ -53,7 +53,7 @@ public static class ProfileStore
     }
 
     /// <summary>読み込む。無い・壊れている場合は null（ファイルは触らない）。
-    /// 言語・ログのファイル出力・トレイ格納は全体の設定なので、プロファイルでは切り替えず current の値を保つ。</summary>
+    /// 言語・ログのファイル出力・トレイ格納・通知音は全体の設定なので、プロファイルでは切り替えず current の値を保つ。</summary>
     public static AppSettings? Load(string configPath, string name, AppSettings current)
     {
         if (CheckName(name) != null) return null;
@@ -62,6 +62,7 @@ public static class ProfileStore
         s.Language = current.Language;
         s.LogToFile = current.LogToFile;
         s.MinimizeToTray = current.MinimizeToTray;
+        s.NotifySound = current.NotifySound;
         return s;
     }
 

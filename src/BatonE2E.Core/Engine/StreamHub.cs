@@ -27,6 +27,8 @@ public sealed class StreamHub
         _enc = enc; _monitor = monitor; _max = maxViewers; _stats = stats;
     }
 
+    public EngineStats Stats => _stats;
+
     public int ViewerCount { get { lock (_lock) return _viewers.Count; } }
 
     public ViewerConnection? TryAddViewer(int queueSize, string remote)

@@ -8,6 +8,7 @@ var ini = Opt("--ini") ?? Path.Combine(AppContext.BaseDirectory, "..", "..", "..
 CoreTests.Run(ini);
 ConfigTests.Run();
 ProfileTests.Run();
+NotifyTests.Run();
 CryptoTests.Run();
 await IntegrationTests.RunAsync();
 await TlsTests.RunAsync();

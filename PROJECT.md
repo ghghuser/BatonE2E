@@ -121,4 +121,4 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 7. 最終レビュー（動作・セキュリティ・バグを数回に分けて）。
 
 ## 13. 作業メモ（中断・再開用。着手前に1行書き、完了で消す）
-- （現在なし）
+- ③通知音（接続時）→ 帯域グラフ の順に着手中。通知音: Core JoinNotifier（同IP60秒・全体3秒に1回）＋EngineStats.ViewerJoined、GUIはMediaPlayer。設定NotifySound（全体設定、プロファイル対象外）

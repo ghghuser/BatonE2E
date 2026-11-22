@@ -29,6 +29,9 @@ public sealed class AppSettings
     public bool LogToFile { get; set; }
     /// <summary>最小化したらタスクトレイへ入れる（タスクバーから消える）。</summary>
     public bool MinimizeToTray { get; set; } = true;
+    /// <summary>視聴者が接続したときに鳴らす音声ファイル（wav/mp3/wma）。空なら鳴らさない。PC固有のため全体の設定（プロファイル対象外）。</summary>
+    public string NotifySound { get; set; } = "";
+    public static readonly string[] SoundExtensions = { ".wav", ".mp3", ".wma" };
 
     // ---- 視聴側のアクセス制御 ----
     /// <summary>同一クライアント（IP）の同時接続数。0=無制限。</summary>
@@ -78,6 +81,8 @@ public sealed class AppSettings
         RateWindowSec = Math.Clamp(RateWindowSec, 0, 3600);
         RateMaxRequests = Math.Clamp(RateMaxRequests, 0, 100000);
         RateBanSec = Math.Clamp(RateBanSec, 0, 86400);
+        NotifySound = (NotifySound ?? "").Trim();
+        if (NotifySound.Length > 260) NotifySound = "";
         DenyRules ??= "";
         SourcePassword ??= "";
         ViewPassword ??= "";
@@ -99,6 +104,8 @@ public sealed class AppSettings
             if (SourcePassword.Length is > 0 and < EngineOptions.MinExternalSourcePasswordLength)
                 return Mk("gui.err.bindpass", "SourcePassword", EngineOptions.MinExternalSourcePasswordLength);
         }
+        if (NotifySound.Length > 0 && !SoundExtensions.Contains(Path.GetExtension(NotifySound).ToLowerInvariant()))
+            return Mk("gui.err.soundext", "NotifySound");
         var rerr = AccessControl.ValidateRules(DenyRuleLines());
         if (rerr != null) return Mk("gui.err.denyrule", "DenyRules", rerr);
         return null;
