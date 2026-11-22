@@ -56,6 +56,13 @@ internal static class ConfigTests
                 && EngineOptions.NormalizeViewPath("/a/b/") == "/a/b" && EngineOptions.NormalizeViewPath("/a b") == "/"
                 && EngineOptions.NormalizeViewPath("/a/../b") == "/" && EngineOptions.NormalizeViewPath("/a?x") == "/" && EngineOptions.NormalizeViewPath("/日本") == "/"
                 && EngineOptions.NormalizeViewPath("//") == "/" && EngineOptions.NormalizeViewPath("/a//b") == "/");
+            T.Check("sourceの待ち受け: 外部アドレスはTLSなし・弱いパスワードを拒否",
+                new AppSettings { SourceBind = "0.0.0.0", SourceTls = "off" }.Check() != null
+                && new AppSettings { SourceBind = "0.0.0.0", SourcePassword = "short" }.Check() != null
+                && new AppSettings { SourceBind = "0.0.0.0", SourcePassword = "long-enough-pass" }.Check() == null
+                && new AppSettings { SourceBind = "127.0.0.1", SourceTls = "off", SourcePassword = "a" }.Check() == null);
+            var nb = new AppSettings { SourceBind = "不正" }; nb.Normalize();
+            T.Check("sourceの待ち受け: 不正な値は127.0.0.1へ戻す", nb.SourceBind == "127.0.0.1");
             T.Check("設定: 受け口と視聴のポート重複を検出", new AppSettings { SourcePort = 8000, ViewPort = 8000 }.Check() != null);
         }
         finally { try { Directory.Delete(dir, true); } catch (IOException) { } }

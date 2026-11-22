@@ -34,9 +34,9 @@ internal sealed partial class SourceListener : IAsyncDisposable
 
     public void Start()
     {
-        _listener = new TcpListener(IPAddress.Loopback, _o.SourcePort);
+        _listener = new TcpListener(IPAddress.Parse(_o.SourceBind), _o.SourcePort);
         _listener.Start();
-        AppLog.Info(Loc.Get("log.source.listen", _o.SourcePort));
+        AppLog.Info(Loc.Get("log.source.listen", _o.SourceBind, _o.SourcePort));
         _loop = Task.Run(AcceptLoopAsync);
     }
 

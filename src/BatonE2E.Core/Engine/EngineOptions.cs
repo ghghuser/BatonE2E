@@ -6,8 +6,9 @@ public enum SourceTlsMode { Auto, Off, On }
 
 public sealed class EngineOptions
 {
-    // source受け口は常に127.0.0.1のみ（設定不可）
     public int SourcePort { get; set; } = 8000;
+    /// <summary>source受け口の待ち受けアドレス。既定は127.0.0.1（このPC内のみ）。それ以外は外部から接続可能になるため、TLSと強いパスワードを必須とする（Validate）。</summary>
+    public string SourceBind { get; set; } = "127.0.0.1";
     /// <summary>auto: 最初の1バイトで平文/TLSを判定。off: 平文のみ。on: TLSのみ。</summary>
     public SourceTlsMode SourceTls { get; set; } = SourceTlsMode.Auto;
     /// <summary>証明書の保存先。未指定なら exe と同じ場所の tls フォルダ。</summary>
@@ -49,8 +50,19 @@ public sealed class EngineOptions
         return p;
     }
 
+    public static bool IsLoopbackBind(string bind) => System.Net.IPAddress.TryParse(bind, out var ip) && System.Net.IPAddress.IsLoopback(ip);
+
+    /// <summary>外部から接続できる設定のときのsourceパスワード最小文字数。</summary>
+    public const int MinExternalSourcePasswordLength = 12;
+
     public void Validate()
     {
+        if (!System.Net.IPAddress.TryParse(SourceBind, out _)) throw new E2eCryptoException("bad-source-bind");
+        if (!IsLoopbackBind(SourceBind))
+        {
+            if (SourceTls == SourceTlsMode.Off) throw new E2eCryptoException("source-bind-needs-tls");
+            if (SourcePassword.Length < MinExternalSourcePasswordLength) throw new E2eCryptoException("source-bind-needs-strong-password");
+        }
         if (string.IsNullOrEmpty(SourcePassword)) throw new E2eCryptoException("empty-source-password");
         if (string.IsNullOrEmpty(ViewPassword)) throw new E2eCryptoException("empty-view-password");
         ViewPath = NormalizeViewPath(ViewPath);

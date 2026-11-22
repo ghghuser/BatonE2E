@@ -73,6 +73,8 @@ public partial class MainWindow : Window
         lblViewPort.Text = Loc.Get("gui.set.viewport");
         lblViewPath.Text = Loc.Get("gui.set.viewpath");
         lblMount.Text = Loc.Get("gui.set.mount");
+        lblSrcBind.Text = Loc.Get("gui.set.srcbind");
+        lblSrcBindNote.Text = Loc.Get("gui.set.srcbindnote", EngineOptions.MinExternalSourcePasswordLength);
         lblSrcPass.Text = Loc.Get("gui.set.srcpass");
         lblViewPass.Text = Loc.Get("gui.set.viewpass");
         lblPassNote.Text = Loc.Get("gui.set.passnote", AppSettings.MinViewPasswordLength, AppSettings.RecommendedViewPasswordLength);
@@ -166,7 +168,6 @@ public partial class MainWindow : Window
         public double Height { get; set; }
         public bool Maximized { get; set; }
         public bool LogOpen { get; set; } = true;
-        public double LogWidth { get; set; } = 400;
     }
 
     private static string UiStatePath => Path.Combine(AppContext.BaseDirectory, "window.json");
@@ -178,7 +179,6 @@ public partial class MainWindow : Window
             if (!File.Exists(UiStatePath)) return;
             var u = System.Text.Json.JsonSerializer.Deserialize<UiState>(File.ReadAllText(UiStatePath));
             if (u == null) return;
-            _logWidth = Math.Clamp(u.LogWidth, 220, 2000);
             if (u.Width >= MinWidth && u.Height >= MinHeight && u.Width < 20000 && u.Height < 20000)
             {
                 // 画面（複数モニター含む）から外れていたら位置は復元しない
@@ -197,7 +197,10 @@ public partial class MainWindow : Window
                 }
             }
             if (u.Maximized) WindowState = WindowState.Maximized;
+            _suppressLog = true;
             tglLog.IsChecked = u.LogOpen;
+            ApplyLogOpenInstant(u.LogOpen);
+            _suppressLog = false;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
@@ -210,13 +213,11 @@ public partial class MainWindow : Window
         try
         {
             var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
-            if (tglLog.IsChecked == true && colLog.ActualWidth > 220) _logWidth = colLog.ActualWidth;
             var u = new UiState
             {
                 Left = b.Left, Top = b.Top, Width = b.Width, Height = b.Height,
                 Maximized = WindowState == WindowState.Maximized,
                 LogOpen = tglLog.IsChecked == true,
-                LogWidth = _logWidth,
             };
             File.WriteAllText(UiStatePath, System.Text.Json.JsonSerializer.Serialize(u));
         }
@@ -259,26 +260,48 @@ public partial class MainWindow : Window
         pSettings.Visibility = i == 1 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private double _logWidth = 400;
+    private const double LogWidth = 410;
+    private bool _suppressLog;
+    private int _logAnim;
 
-    private void SetLogOpen(bool open)
+    /// <summary>ログを右側へ引き出す／しまう。ウィンドウ自体が右へ広がる・縮む（最大化中は内側で開閉）。</summary>
+    private async void SetLogOpen(bool open)
     {
-        if (colLog == null) return;
+        if (colLog == null || _suppressLog) return;
+        var id = ++_logAnim;
+        var from = colLog.Width.Value;
+        var to = open ? LogWidth : 0;
+        colLog.MinWidth = 0;
+        pLog.Visibility = Visibility.Visible;
         if (open)
         {
-            colLog.MinWidth = 220;
-            colLog.Width = new GridLength(_logWidth);
-            splitLog.Visibility = Visibility.Visible;
-            pLog.Visibility = Visibility.Visible;
+            // 画面の右端からはみ出すなら、先に左へ寄せる
+            var wa = SystemParameters.WorkArea;
+            var need = Width + (to - from);
+            if (WindowState == WindowState.Normal && Left + need > wa.Right) Left = Math.Max(wa.Left, wa.Right - need);
         }
-        else
+        var grow = WindowState == WindowState.Normal;
+        var baseWidth = Width - from;
+        const int steps = 10;
+        for (var i = 1; i <= steps; i++)
         {
-            if (colLog.ActualWidth > 220) _logWidth = colLog.ActualWidth;
-            colLog.MinWidth = 0;
-            colLog.Width = new GridLength(0);
-            splitLog.Visibility = Visibility.Collapsed;
-            pLog.Visibility = Visibility.Collapsed;
+            if (id != _logAnim) return;
+            var t = i / (double)steps;
+            var v = from + (to - from) * (1 - Math.Pow(1 - t, 3));
+            colLog.Width = new GridLength(v);
+            if (grow) Width = baseWidth + v;
+            await Task.Delay(12);
         }
+        if (id != _logAnim) return;
+        colLog.Width = new GridLength(to);
+        if (grow) Width = baseWidth + to;
+        if (!open) pLog.Visibility = Visibility.Collapsed;
+    }
+
+    private void ApplyLogOpenInstant(bool open)
+    {
+        colLog.Width = new GridLength(open ? LogWidth : 0);
+        pLog.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ---------- 開始・停止 ----------
@@ -315,7 +338,7 @@ public partial class MainWindow : Window
         }
         _engine = eng;
 
-        _vSrvServer.Text = "127.0.0.1";
+        _vSrvServer.Text = o.SourceBind == "0.0.0.0" ? Loc.Get("gui.val.anyaddr") : o.SourceBind;
         _vSrvPort.Text = o.SourcePort.ToString();
         _vSrvMount.Text = o.Mount;
         _vSrvUser.Text = "source";
@@ -435,6 +458,7 @@ public partial class MainWindow : Window
         rbLangJa.IsChecked = s.Language == "ja";
         rbLangEn.IsChecked = s.Language == "en";
         tbSrcPort.Text = s.SourcePort.ToString();
+        tbSrcBind.Text = s.SourceBind;
         tbViewPort.Text = s.ViewPort.ToString();
         tbViewPath.Text = s.ViewPath;
         tbMount.Text = s.Mount;
@@ -457,6 +481,7 @@ public partial class MainWindow : Window
         {
             Language = rbLangEn.IsChecked == true ? "en" : "ja",
             SourcePort = ParseInt(tbSrcPort.Text),
+            SourceBind = tbSrcBind.Text,
             ViewPort = ParseInt(tbViewPort.Text),
             ViewPath = tbViewPath.Text,
             Mount = tbMount.Text,
@@ -473,7 +498,8 @@ public partial class MainWindow : Window
     }
 
     private static string ErrText(string key) =>
-        key == "gui.err.shortpass" ? Loc.Get(key, AppSettings.MinViewPasswordLength) : Loc.Get(key);
+        key == "gui.err.shortpass" ? Loc.Get(key, AppSettings.MinViewPasswordLength)
+        : key == "gui.err.bindpass" ? Loc.Get(key, EngineOptions.MinExternalSourcePasswordLength) : Loc.Get(key);
 
     private void SetMsg(string text) => tbSetMsg.Text = text;
 
@@ -493,6 +519,7 @@ public partial class MainWindow : Window
         LoadUi(s);
         AppLog.FilePath = s.LogToFile ? Path.Combine(AppContext.BaseDirectory, "BatonE2E.log") : null;
         SetMsg(Loc.Get("gui.set.saved") + (langChanged ? "\n" + Loc.Get("gui.set.restart") : "")
+               + (!EngineOptions.IsLoopbackBind(s.SourceBind) ? "\n" + Loc.Get("gui.set.bindwarn") : "")
                + (s.IsWeakViewPassword ? "\n" + Loc.Get("gui.set.weakpass", AppSettings.RecommendedViewPasswordLength) : ""));
     }
 

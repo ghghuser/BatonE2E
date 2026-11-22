@@ -5,6 +5,7 @@
     <SolidColorBrush x:Key="BgBrush" Color="#1E1F22"/>
     <SolidColorBrush x:Key="PanelBrush" Color="#2B2D31"/>
     <SolidColorBrush x:Key="InputBrush" Color="#17181A"/>
+    <SolidColorBrush x:Key="CardBrush" Color="#33363C"/>
     <SolidColorBrush x:Key="LineBrush" Color="#3F4147"/>
     <SolidColorBrush x:Key="TextBrush" Color="#E3E5E8"/>
     <SolidColorBrush x:Key="MutedBrush" Color="#9AA0A6"/>
@@ -103,6 +104,32 @@
               <Trigger Property="IsChecked" Value="True">
                 <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBrush}"/>
                 <Setter Property="Foreground" Value="White"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- 中身とつながるタブ -->
+    <Style x:Key="TabButton" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+      <Setter Property="Margin" Value="0,0,3,0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="bd" Background="{StaticResource BtnBrush}" CornerRadius="6,6,0,0" Padding="24,8">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="bd" Property="Background" Value="{StaticResource BtnHoverBrush}"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="bd" Property="Background" Value="{StaticResource PanelBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>

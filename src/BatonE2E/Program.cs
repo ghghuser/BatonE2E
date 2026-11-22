@@ -43,6 +43,7 @@ internal static class Program
         var o = new EngineOptions
         {
             SourcePort = int.Parse(Opt(args, "--source-port", "BATONE2E_SOURCE_PORT") ?? "8000"),
+            SourceBind = Opt(args, "--source-bind", "BATONE2E_SOURCE_BIND") ?? "127.0.0.1",
             ViewPort = int.Parse(Opt(args, "--view-port", "BATONE2E_VIEW_PORT") ?? "8080"),
             ViewPath = Opt(args, "--view-path", "BATONE2E_VIEW_PATH") ?? "/",
             Mount = Opt(args, "--mount", "BATONE2E_MOUNT") ?? "/stream",

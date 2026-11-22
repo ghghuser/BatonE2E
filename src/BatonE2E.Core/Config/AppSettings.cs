@@ -10,6 +10,8 @@ public sealed class AppSettings
 {
     public string Language { get; set; } = "ja";
     public int SourcePort { get; set; } = 8000;
+    /// <summary>sourceの待ち受けアドレス。127.0.0.1以外は外部公開（TLS必須・強いパスワード必須）。</summary>
+    public string SourceBind { get; set; } = "127.0.0.1";
     public int ViewPort { get; set; } = 8080;
     /// <summary>視聴ページのURLパス（例: /live-abc）。</summary>
     public string ViewPath { get; set; } = "/";
@@ -46,6 +48,7 @@ public sealed class AppSettings
     {
         if (Language != "ja" && Language != "en") Language = "ja";
         if (SourcePort is < 1 or > 65535) SourcePort = 8000;
+        SourceBind = System.Net.IPAddress.TryParse((SourceBind ?? "").Trim(), out var bindIp) ? bindIp.ToString() : "127.0.0.1";
         if (ViewPort is < 1 or > 65535) ViewPort = 8080;
         var m = (Mount ?? "").Trim();
         if (m.Length == 0) m = "/stream";
@@ -66,6 +69,11 @@ public sealed class AppSettings
     {
         if (SourcePort == ViewPort) return "gui.err.sameport";
         if (ViewPassword.Length is > 0 and < MinViewPasswordLength) return "gui.err.shortpass";
+        if (!EngineOptions.IsLoopbackBind(SourceBind))
+        {
+            if (SourceTls == "off") return "gui.err.bindtls";
+            if (SourcePassword.Length is > 0 and < EngineOptions.MinExternalSourcePasswordLength) return "gui.err.bindpass";
+        }
         return null;
     }
 
@@ -145,6 +153,7 @@ public sealed class AppSettings
         return new EngineOptions
         {
             SourcePort = SourcePort,
+            SourceBind = SourceBind,
             ViewPort = ViewPort,
             Mount = Mount,
             ViewPath = ViewPath,
