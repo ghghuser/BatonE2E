@@ -21,7 +21,7 @@ public partial class MainWindow
         tbMaxViewers = null!, tbSrcPass = null!, tbViewPass = null!, tbConnLimit = null!, tbRateWin = null!, tbRateMax = null!,
         tbRateBan = null!, tbDeny = null!;
     private RadioButton rbLangJa = null!, rbLangEn = null!, rbTlsAuto = null!, rbTlsOn = null!, rbTlsOff = null!;
-    private CheckBox chkAnyUser = null!, chkProxy = null!, chkLogFile = null!;
+    private CheckBox chkAnyUser = null!, chkProxy = null!, chkLogFile = null!, chkTray = null!;
     private Button btnGenSrc = null!, btnGenView = null!, btnPresetLoad = null!, btnPresetSave = null!, btnPresetDelete = null!;
     private TextBox tbPresetName = null!;
     private ListBox lbPresets = null!;
@@ -112,6 +112,8 @@ public partial class MainWindow
         Group("gui.grp.other");
         chkLogFile = Check(Loc.Get("gui.set.logfile"));
         Row("", chkLogFile, "gui.tip.logfile");
+        chkTray = Check(Loc.Get("gui.set.tray"));
+        Row("", chkTray, "gui.tip.tray");
 
         btnSave.Content = Loc.Get("gui.set.save");
         btnRestore.Content = Loc.Get("gui.set.restore");
@@ -249,6 +251,7 @@ public partial class MainWindow
         chkProxy.IsChecked = s.UseProxyHeader;
         tbDeny.Text = s.DenyRules.Replace("\r", "").Replace("\n", "\r\n");
         chkLogFile.IsChecked = s.LogToFile;
+        chkTray.IsChecked = s.MinimizeToTray;
         _loading = false;
         UpdateDirty();
     }
@@ -284,6 +287,7 @@ public partial class MainWindow
             UseProxyHeader = chkProxy.IsChecked == true,
             DenyRules = tbDeny.Text.Replace("\r", ""),
             LogToFile = chkLogFile.IsChecked == true,
+            MinimizeToTray = chkTray.IsChecked == true,
         };
         s.Normalize();
         issue = iss;

@@ -53,7 +53,7 @@ public static class PresetStore
     }
 
     /// <summary>読み込む。無い・壊れている場合は null（ファイルは触らない）。
-    /// 言語とログのファイル出力は全体の設定なので、プリセットでは切り替えず current の値を保つ。</summary>
+    /// 言語・ログのファイル出力・トレイ格納は全体の設定なので、プリセットでは切り替えず current の値を保つ。</summary>
     public static AppSettings? Load(string configPath, string name, AppSettings current)
     {
         if (CheckName(name) != null) return null;
@@ -61,6 +61,7 @@ public static class PresetStore
         if (s == null) return null;
         s.Language = current.Language;
         s.LogToFile = current.LogToFile;
+        s.MinimizeToTray = current.MinimizeToTray;
         return s;
     }
 

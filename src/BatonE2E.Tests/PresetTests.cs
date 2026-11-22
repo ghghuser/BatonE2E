@@ -12,17 +12,17 @@ internal static class PresetTests
         try
         {
             T.Check("プリセット: 一覧は最初は空", PresetStore.List(cfg).Count == 0);
-            var a = new AppSettings { SourcePort = 9100, ViewPort = 9200, PageTitle = "夜の配信", Language = "en", LogToFile = true };
+            var a = new AppSettings { SourcePort = 9100, ViewPort = 9200, PageTitle = "夜の配信", Language = "en", LogToFile = true, MinimizeToTray = false };
             PresetStore.Save(cfg, "  夜の配信用  ", a);
             PresetStore.Save(cfg, "Home", new AppSettings { SourcePort = 9300 });
             var names = PresetStore.List(cfg);
             T.Check("プリセット: 保存した名前が一覧に出る（前後の空白は除く）", names.Count == 2 && names.Contains("夜の配信用") && names.Contains("Home"));
             T.Check("プリセット: 存在確認", PresetStore.Exists(cfg, "Home") && !PresetStore.Exists(cfg, "Nothing"));
 
-            var cur = new AppSettings { Language = "ja", LogToFile = false };
+            var cur = new AppSettings { Language = "ja", LogToFile = false, MinimizeToTray = true };
             var l = PresetStore.Load(cfg, "夜の配信用", cur);
             T.Check("プリセット: 内容を読み込める", l != null && l.SourcePort == 9100 && l.ViewPort == 9200 && l.PageTitle == "夜の配信");
-            T.Check("プリセット: 言語・ログ出力は現在の値のまま", l != null && l.Language == "ja" && !l.LogToFile);
+            T.Check("プリセット: 言語・ログ出力・トレイ格納は現在の値のまま", l != null && l.Language == "ja" && !l.LogToFile && l.MinimizeToTray);
             T.Check("プリセット: 無い名前は null", PresetStore.Load(cfg, "Nothing", cur) == null);
 
             PresetStore.Save(cfg, "Home", new AppSettings { SourcePort = 9400 });

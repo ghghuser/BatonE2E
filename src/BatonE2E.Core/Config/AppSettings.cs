@@ -27,6 +27,8 @@ public sealed class AppSettings
     public bool AcceptAnySourceUser { get; set; }
     /// <summary>ログをファイル（exeの横）にも保存する。</summary>
     public bool LogToFile { get; set; }
+    /// <summary>最小化したらタスクトレイへ入れる（タスクバーから消える）。</summary>
+    public bool MinimizeToTray { get; set; } = true;
 
     // ---- 視聴側のアクセス制御 ----
     /// <summary>同一クライアント（IP）の同時接続数。0=無制限。</summary>

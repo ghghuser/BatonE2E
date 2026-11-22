@@ -86,7 +86,7 @@ public partial class MainWindow : Window
             try { Process.Start(new ProcessStartInfo(AppContext.BaseDirectory) { UseShellExecute = true }); }
             catch (Exception ex) { SetMsg(ex.Message); }
         };
-        _statTimer.Tick += (_, _) => UpdateStats();
+        _statTimer.Tick += (_, _) => { UpdateStats(); UpdateTray(); };
         _logTimer.Tick += (_, _) => FlushLogs();
         _statTimer.Start();
         _logTimer.Start();
@@ -96,6 +96,7 @@ public partial class MainWindow : Window
         RestoreUiState();
         ShowStoppedValues();
         UpdateStats();
+        InitTray();
         tbLogCount.Text = Loc.Get("gui.log.lines", 0);
         if (settingsCorrupted)
         {
@@ -191,7 +192,7 @@ public partial class MainWindow : Window
             var u = new UiState
             {
                 Left = b.Left, Top = b.Top, Width = b.Width, Height = b.Height,
-                Maximized = WindowState == WindowState.Maximized,
+                Maximized = WindowState == WindowState.Maximized || (WindowState == WindowState.Minimized && _stateBeforeMin == WindowState.Maximized),
                 LogOpen = tglLog.IsChecked == true,
             };
             File.WriteAllText(UiStatePath, System.Text.Json.JsonSerializer.Serialize(u));
@@ -281,8 +282,11 @@ public partial class MainWindow : Window
 
     // ---------- 開始・停止 ----------
 
-    private async void OnStartStop(object sender, RoutedEventArgs e)
+    private async void OnStartStop(object sender, RoutedEventArgs e) => await ToggleAsync();
+
+    private async Task ToggleAsync()
     {
+        if (!btnStartStop.IsEnabled) return;
         btnStartStop.IsEnabled = false;
         try
         {

@@ -3,6 +3,8 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <!-- タスクトレイアイコン（NotifyIcon）のためだけに使う。名前の衝突を避けるため暗黙usingは外す -->
+    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>BatonE2E</AssemblyName>
     <RootNamespace>BatonE2E.Gui</RootNamespace>
     <!-- Linuxの確認用ビルドでも通るようにする（発行はWindowsで行う） -->
@@ -11,6 +13,10 @@
   <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\assets\BatonE2E.ico')">
     <ApplicationIcon>$(MSBuildThisFileDirectory)..\..\assets\BatonE2E.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BatonE2E.Core\BatonE2E.Core.csproj" />
   </ItemGroup>
