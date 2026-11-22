@@ -1,4 +1,6 @@
+using System.Text;
 using BatonE2E.Core.Config;
+using BatonE2E.Core.Crypto;
 
 namespace BatonE2E.Tests;
 
@@ -40,6 +42,15 @@ internal static class ConfigTests
             T.Check("設定: パスワード空なら自動生成", o.SourcePassword.Length >= 16 && o.ViewPassword.Length >= 20);
             var o2 = new AppSettings { ViewPassword = "固定" }.ToEngineOptions();
             T.Check("設定: パスワード指定ならそのまま使う", o2.ViewPassword == "固定");
+            T.Check("パスワード: 7文字は拒否・8文字は許可", new AppSettings { ViewPassword = "abcdefg" }.Check() != null && new AppSettings { ViewPassword = "abcdefgh" }.Check() == null);
+            T.Check("パスワード: 日本語8文字は許可・12文字未満は警告", new AppSettings { ViewPassword = "ぱすわーどです" + "ね" }.Check() == null && new AppSettings { ViewPassword = "ぱすわーどですね" }.IsWeakViewPassword);
+            // 日本語（濁点の合成/分解違い）でも同じ鍵になること（NFC正規化）
+            var nfc = "ぱすわーど".Normalize(NormalizationForm.FormC);
+            var nfd = "ぱすわーど".Normalize(NormalizationForm.FormD);
+            using var jenc = FrameEncryptor.Create(nfc, CryptoConstants.DefaultIterations);
+            var jhdr = StreamHeader.Parse(jenc.Header.ToJson())!;
+            using var jdec = FrameDecryptor.Create(nfd, jhdr);
+            T.Check("パスワード: 日本語（NFC/NFD違い）でも確認ブロックを検証できる", nfc != nfd && jdec.VerifyConfirmation(jenc.ConfirmationFrame()));
             T.Check("設定: 受け口と視聴のポート重複を検出", new AppSettings { SourcePort = 8000, ViewPort = 8000 }.Check() != null);
         }
         finally { try { Directory.Delete(dir, true); } catch (IOException) { } }

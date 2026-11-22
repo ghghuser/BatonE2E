@@ -32,6 +32,12 @@ public sealed class AppSettings
     };
 
     public const int BackupKeep = 10;
+    /// <summary>視聴用パスフレーズの最小文字数（これ未満は保存・開始を拒否）。日本語も可（NFC正規化して使用）。</summary>
+    public const int MinViewPasswordLength = 8;
+    /// <summary>これ未満は警告（総当たりで破られやすい）。</summary>
+    public const int RecommendedViewPasswordLength = 12;
+
+    public bool IsWeakViewPassword => ViewPassword.Length is > 0 and < RecommendedViewPasswordLength;
 
     /// <summary>範囲外・不正な値を安全な値へ直す。</summary>
     public void Normalize()
@@ -56,6 +62,7 @@ public sealed class AppSettings
     public string? Check()
     {
         if (SourcePort == ViewPort) return "gui.err.sameport";
+        if (ViewPassword.Length is > 0 and < MinViewPasswordLength) return "gui.err.shortpass";
         return null;
     }
 

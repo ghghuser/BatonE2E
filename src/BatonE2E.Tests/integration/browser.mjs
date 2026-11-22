@@ -40,6 +40,18 @@ try {
   check(`正しいパスワードで再生位置が進む（currentTime=${st.t.toFixed(2)}秒）`, played);
   check('状態表示が「受信・再生中」', st.status.includes('受信・再生中'));
   check('エラー表示なし', st.err === '');
+
+  // 停止ボタン: 押すと止まり、再生位置が進まず、WebSocketも閉じる
+  await page.click('#stopBtn');
+  await page.waitForTimeout(500);
+  const t1 = await page.evaluate(() => document.getElementById('a').currentTime);
+  await page.waitForTimeout(1500);
+  const s2 = await page.evaluate(() => ({ t: document.getElementById('a').currentTime, paused: document.getElementById('a').paused, status: document.getElementById('status').textContent, stopHidden: document.getElementById('stopBtn').hidden }));
+  check('停止ボタンで止まる（再生位置が進まない・停止表示）', s2.paused && Math.abs(s2.t - t1) < 0.05 && s2.status.includes('停止しました') && s2.stopHidden);
+  // 再度「再生」で最新から再開できる
+  await page.click('#go');
+  const again = await until(() => document.getElementById('a').currentTime > 1.0, 45000);
+  check('停止後に「再生」で再開できる', again);
 } catch (e) {
   console.log('例外: ' + e.message); failed = true;
 }

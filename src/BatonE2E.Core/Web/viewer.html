@@ -30,6 +30,7 @@ small{color:var(--sub)}
   <label for="pw" id="lblPw">パスワード</label>
   <input id="pw" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
   <button id="go">再生</button>
+  <button id="stopBtn" hidden>停止</button>
 </div>
 <div class="card">
   <div id="status">待機中</div>
@@ -48,13 +49,13 @@ const T={wait:"待機中",connecting:"接続中…",deriving:"鍵を生成中…
  seq:"受信の順序が崩れたため停止しました。再接続してください。",nocrypto:"暗号機能が使えません。https（または localhost）で開いてください。",
  nomse:"このブラウザは非対応です（MediaSource未対応）。PCのChrome・Edge・Firefox、またはAndroidのChromeを使用してください。",
  unsup:"この形式は再生できません。配信側でtranscodeを有効にしてください。",full:"視聴者数の上限に達しています。",
- lost:"切断されました。再接続します…",hdr:"配信側の暗号設定に対応していません。",chg:"形式が変更されました。再接続してください。"};
+ stoppedMsg:"停止しました",lost:"切断されました。再接続します…",hdr:"配信側の暗号設定に対応していません。",chg:"形式が変更されました。再接続してください。"};
 const $=id=>document.getElementById(id);
 const MSE=window.ManagedMediaSource||window.MediaSource;
 const enc=new TextEncoder(),dec=new TextDecoder(),PFX=enc.encode("E2ERv1");
 const IT_MIN=100000,IT_MAX=10000000;
 let pw="",ws=null,key=null,keyId="",sid=null,expect=null,ms=null,sb=null,msReady=null,mime="",
-    queue=[],needSync=true,stopped=true,chain=Promise.resolve(),retryMs=2000,retryTimer=0,gotConfirm=false;
+    queue=[],needSync=true,stopped=true,chain=Promise.resolve(),retryMs=2000,retryTimer=0,gotConfirm=false,autoPlayed=false;
 class Fatal extends Error{constructor(m,retry){super(m);this.retry=!!retry;}}
 function setStatus(t,c){const s=$("status");s.textContent=t;s.className=c||"";}
 function setErr(t){$("err").textContent=t||"";}
@@ -115,7 +116,7 @@ function pump(){
     }
     if(!queue.length)return;
     sb.appendBuffer(queue.shift());
-    if(a.paused)a.play().catch(()=>{});
+    if(a.paused&&!autoPlayed){autoPlayed=true;a.play().catch(()=>{});}
   }catch(e){
     if(e.name==="QuotaExceededError"&&sb.buffered.length){sb.remove(sb.buffered.start(0),Math.max(sb.buffered.start(0),a.currentTime-5));}
     else fail(new Fatal(T.unsup));
@@ -147,11 +148,22 @@ async function onMsg(d){
   else if(t===3){await setMime(dec.decode(p));}
   else throw new Fatal(T.tamper,true);
 }
+function resetMedia(){ // 再生側を作り直す（停止後に再生すると常に最新から始まる）
+  const a=$("a");try{a.pause();}catch{}
+  a.removeAttribute("src");a.load();
+  ms=null;sb=null;msReady=null;mime="";queue.length=0;needSync=true;autoPlayed=false;
+}
+function stopPlay(){
+  stopped=true;clearTimeout(retryTimer);
+  if(ws){ws.onclose=null;try{ws.close();}catch{}ws=null;}
+  resetMedia();setErr("");$("title").textContent="";setStatus(T.stoppedMsg);
+  $("retry").hidden=true;$("stopBtn").hidden=true;$("go").disabled=false;
+}
 function fail(e){
   if(stopped)return;
   stopped=true;if(ws){ws.onclose=null;try{ws.close();}catch{}ws=null;}
   clearTimeout(retryTimer);
-  setErr(e.message);setStatus("","");
+  setErr(e.message);setStatus("","");$("stopBtn").hidden=true;
   $("retry").hidden=!(e.retry);$("go").disabled=false;
 }
 function connect(){
@@ -169,11 +181,12 @@ function start(){
   if(!MSE){setErr(T.nomse);return;}
   pw=$("pw").value;if(!pw)return;
   mseSetup();   // 再生の許可を得るため、クリック操作の中でMediaSourceを用意
-  $("go").disabled=true;$("retry").hidden=true;stopped=false;retryMs=2000;
+  $("go").disabled=true;$("stopBtn").hidden=false;$("retry").hidden=true;stopped=false;retryMs=2000;
   key=null;keyId="";gotConfirm=false;chain=Promise.resolve();
   connect();
 }
 $("go").onclick=start;
+$("stopBtn").onclick=stopPlay;
 $("retry").onclick=()=>{$("retry").hidden=true;stopped=false;chain=Promise.resolve();gotConfirm=false;connect();};
 $("pw").addEventListener("keydown",e=>{if(e.key==="Enter")start();});
 setStatus(T.wait);

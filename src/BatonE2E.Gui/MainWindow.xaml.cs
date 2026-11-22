@@ -47,7 +47,7 @@ public partial class MainWindow : Window
 
         // 文言
         rbMain.Content = Loc.Get("gui.tab.main");
-        rbLog.Content = Loc.Get("gui.tab.log");
+        tglLog.Content = Loc.Get("gui.tab.log");
         rbSettings.Content = Loc.Get("gui.tab.settings");
         tbBoxSource.Text = Loc.Get("gui.box.source");
         tbBoxView.Text = Loc.Get("gui.box.view");
@@ -74,7 +74,7 @@ public partial class MainWindow : Window
         lblMount.Text = Loc.Get("gui.set.mount");
         lblSrcPass.Text = Loc.Get("gui.set.srcpass");
         lblViewPass.Text = Loc.Get("gui.set.viewpass");
-        lblPassNote.Text = Loc.Get("gui.set.passnote");
+        lblPassNote.Text = Loc.Get("gui.set.passnote", AppSettings.MinViewPasswordLength, AppSettings.RecommendedViewPasswordLength);
         lblPageTitle.Text = Loc.Get("gui.set.title");
         lblMaxViewers.Text = Loc.Get("gui.set.maxviewers");
         lblTls.Text = Loc.Get("gui.set.tls");
@@ -91,8 +91,9 @@ public partial class MainWindow : Window
 
         // 操作
         rbMain.Checked += (_, _) => ShowPanel(0);
-        rbLog.Checked += (_, _) => ShowPanel(1);
-        rbSettings.Checked += (_, _) => ShowPanel(2);
+        rbSettings.Checked += (_, _) => ShowPanel(1);
+        tglLog.Checked += (_, _) => SetLogOpen(true);
+        tglLog.Unchecked += (_, _) => SetLogOpen(false);
         rbLogAll.Checked += (_, _) => RebuildLog();
         rbLogWarn.Checked += (_, _) => RebuildLog();
         btnStartStop.Click += OnStartStop;
@@ -182,8 +183,29 @@ public partial class MainWindow : Window
     private void ShowPanel(int i)
     {
         pMain.Visibility = i == 0 ? Visibility.Visible : Visibility.Collapsed;
-        pLog.Visibility = i == 1 ? Visibility.Visible : Visibility.Collapsed;
-        pSettings.Visibility = i == 2 ? Visibility.Visible : Visibility.Collapsed;
+        pSettings.Visibility = i == 1 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private double _logWidth = 400;
+
+    private void SetLogOpen(bool open)
+    {
+        if (colLog == null) return;
+        if (open)
+        {
+            colLog.MinWidth = 220;
+            colLog.Width = new GridLength(_logWidth);
+            splitLog.Visibility = Visibility.Visible;
+            pLog.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            if (colLog.ActualWidth > 220) _logWidth = colLog.ActualWidth;
+            colLog.MinWidth = 0;
+            colLog.Width = new GridLength(0);
+            splitLog.Visibility = Visibility.Collapsed;
+            pLog.Visibility = Visibility.Collapsed;
+        }
     }
 
     // ---------- 開始・停止 ----------
@@ -203,7 +225,7 @@ public partial class MainWindow : Window
     {
         tbError.Text = "";
         var err = _set.Check();
-        if (err != null) { tbError.Text = Loc.Get(err); return; }
+        if (err != null) { tbError.Text = ErrText(err); return; }
 
         tbState.Text = Loc.Get("gui.state.starting");
         var o = _set.ToEngineOptions();
@@ -375,13 +397,16 @@ public partial class MainWindow : Window
         return s;
     }
 
+    private static string ErrText(string key) =>
+        key == "gui.err.shortpass" ? Loc.Get(key, AppSettings.MinViewPasswordLength) : Loc.Get(key);
+
     private void SetMsg(string text) => tbSetMsg.Text = text;
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
         var s = ReadUi();
         var err = s.Check();
-        if (err != null) { SetMsg(Loc.Get(err)); return; }
+        if (err != null) { SetMsg(ErrText(err)); return; }
         try { s.Save(App.ConfigPath); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -392,7 +417,8 @@ public partial class MainWindow : Window
         _set = s;
         LoadUi(s);
         AppLog.FilePath = s.LogToFile ? Path.Combine(AppContext.BaseDirectory, "BatonE2E.log") : null;
-        SetMsg(Loc.Get("gui.set.saved") + (langChanged ? "\n" + Loc.Get("gui.set.restart") : ""));
+        SetMsg(Loc.Get("gui.set.saved") + (langChanged ? "\n" + Loc.Get("gui.set.restart") : "")
+               + (s.IsWeakViewPassword ? "\n" + Loc.Get("gui.set.weakpass", AppSettings.RecommendedViewPasswordLength) : ""));
     }
 
     private void OnRestore(object sender, RoutedEventArgs e)
