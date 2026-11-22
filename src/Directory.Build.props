@@ -4,6 +4,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>12.0</LangVersion>
+    <!-- デバッグ情報（.pdb）はexe/dllに埋め込む。別ファイルが増えず、障害ログに行番号が出る -->
+    <DebugType>embedded</DebugType>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <!-- 版数: ビルド番号 N から 1.0.(N÷100の商).(余り) を作成 -->
     <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>

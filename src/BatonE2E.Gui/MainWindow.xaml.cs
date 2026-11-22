@@ -68,29 +68,7 @@ public partial class MainWindow : Window
         btnLogSave.Content = Loc.Get("gui.log.save");
         btnLogClear.Content = Loc.Get("gui.log.clear");
 
-        lblLang.Text = Loc.Get("gui.set.language");
-        lblSrcPort.Text = Loc.Get("gui.set.srcport");
-        lblViewPort.Text = Loc.Get("gui.set.viewport");
-        lblViewPath.Text = Loc.Get("gui.set.viewpath");
-        lblMount.Text = Loc.Get("gui.set.mount");
-        lblSrcBind.Text = Loc.Get("gui.set.srcbind");
-        lblSrcBindNote.Text = Loc.Get("gui.set.srcbindnote", EngineOptions.MinExternalSourcePasswordLength);
-        lblSrcPass.Text = Loc.Get("gui.set.srcpass");
-        lblViewPass.Text = Loc.Get("gui.set.viewpass");
-        lblPassNote.Text = Loc.Get("gui.set.passnote", AppSettings.MinViewPasswordLength, AppSettings.RecommendedViewPasswordLength);
-        lblPageTitle.Text = Loc.Get("gui.set.title");
-        lblMaxViewers.Text = Loc.Get("gui.set.maxviewers");
-        lblTls.Text = Loc.Get("gui.set.tls");
-        rbTlsAuto.Content = Loc.Get("gui.tls.auto");
-        rbTlsOn.Content = Loc.Get("gui.tls.on");
-        rbTlsOff.Content = Loc.Get("gui.tls.off");
-        chkAnyUser.Content = Loc.Get("gui.set.anyuser");
-        chkLogFile.Content = Loc.Get("gui.set.logfile");
-        btnGenSrc.Content = Loc.Get("gui.set.gen");
-        btnGenView.Content = Loc.Get("gui.set.gen");
-        btnSave.Content = Loc.Get("gui.set.save");
-        btnRestore.Content = Loc.Get("gui.set.restore");
-        btnOpenFolder.Content = Loc.Get("gui.set.openfolder");
+        BuildSettingsForm();
 
         // 操作
         rbMain.Checked += (_, _) => ShowPanel(0);
@@ -103,10 +81,6 @@ public partial class MainWindow : Window
         btnLogCopy.Click += (_, _) => CopyText(txtLog.Text);
         btnLogSave.Click += OnLogSave;
         btnLogClear.Click += (_, _) => { _logs.Clear(); txtLog.Clear(); tbLogCount.Text = Loc.Get("gui.log.lines", 0); };
-        btnGenSrc.Click += (_, _) => tbSrcPass.Text = PassphraseGenerator.Generate(4, 4);
-        btnGenView.Click += (_, _) => tbViewPass.Text = PassphraseGenerator.Generate();
-        btnSave.Click += OnSave;
-        btnRestore.Click += OnRestore;
         btnOpenFolder.Click += (_, _) =>
         {
             try { Process.Start(new ProcessStartInfo(AppContext.BaseDirectory) { UseShellExecute = true }); }
@@ -118,6 +92,7 @@ public partial class MainWindow : Window
         _logTimer.Start();
 
         LoadUi(_set);
+        UpdateSecBanner();
         RestoreUiState();
         ShowStoppedValues();
         UpdateStats();
@@ -321,7 +296,7 @@ public partial class MainWindow : Window
     {
         tbError.Text = "";
         var err = _set.Check();
-        if (err != null) { tbError.Text = ErrText(err); return; }
+        if (err != null) { tbError.Text = IssueText(err); return; }
 
         tbState.Text = Loc.Get("gui.state.starting");
         var o = _set.ToEngineOptions();
@@ -351,6 +326,7 @@ public partial class MainWindow : Window
         tbHint.Text = "";
         btnStartStop.Content = Loc.Get("gui.btn.stop");
         AppLog.Info(Loc.Get("gui.log.started"));
+        foreach (var w in _set.SecurityWarnings()) AppLog.Warn(Loc.Get("gui.sec.log", Loc.Get(w)));
         UpdateStats();
     }
 
@@ -449,85 +425,5 @@ public partial class MainWindow : Window
         {
             AppLog.Error(Loc.Get("log.error", ex.Message));
         }
-    }
-
-    // ---------- 設定 ----------
-
-    private void LoadUi(AppSettings s)
-    {
-        rbLangJa.IsChecked = s.Language == "ja";
-        rbLangEn.IsChecked = s.Language == "en";
-        tbSrcPort.Text = s.SourcePort.ToString();
-        tbSrcBind.Text = s.SourceBind;
-        tbViewPort.Text = s.ViewPort.ToString();
-        tbViewPath.Text = s.ViewPath;
-        tbMount.Text = s.Mount;
-        tbSrcPass.Text = s.SourcePassword;
-        tbViewPass.Text = s.ViewPassword;
-        tbPageTitle.Text = s.PageTitle;
-        tbMaxViewers.Text = s.MaxViewers.ToString();
-        rbTlsAuto.IsChecked = s.SourceTls == "auto";
-        rbTlsOn.IsChecked = s.SourceTls == "on";
-        rbTlsOff.IsChecked = s.SourceTls == "off";
-        chkAnyUser.IsChecked = s.AcceptAnySourceUser;
-        chkLogFile.IsChecked = s.LogToFile;
-    }
-
-    private static int ParseInt(string text) => int.TryParse(text.Trim(), out var v) ? v : 0;
-
-    private AppSettings ReadUi()
-    {
-        var s = new AppSettings
-        {
-            Language = rbLangEn.IsChecked == true ? "en" : "ja",
-            SourcePort = ParseInt(tbSrcPort.Text),
-            SourceBind = tbSrcBind.Text,
-            ViewPort = ParseInt(tbViewPort.Text),
-            ViewPath = tbViewPath.Text,
-            Mount = tbMount.Text,
-            SourcePassword = tbSrcPass.Text,
-            ViewPassword = tbViewPass.Text,
-            PageTitle = tbPageTitle.Text,
-            MaxViewers = ParseInt(tbMaxViewers.Text),
-            SourceTls = rbTlsOn.IsChecked == true ? "on" : rbTlsOff.IsChecked == true ? "off" : "auto",
-            AcceptAnySourceUser = chkAnyUser.IsChecked == true,
-            LogToFile = chkLogFile.IsChecked == true,
-        };
-        s.Normalize();
-        return s;
-    }
-
-    private static string ErrText(string key) =>
-        key == "gui.err.shortpass" ? Loc.Get(key, AppSettings.MinViewPasswordLength)
-        : key == "gui.err.bindpass" ? Loc.Get(key, EngineOptions.MinExternalSourcePasswordLength) : Loc.Get(key);
-
-    private void SetMsg(string text) => tbSetMsg.Text = text;
-
-    private void OnSave(object sender, RoutedEventArgs e)
-    {
-        var s = ReadUi();
-        var err = s.Check();
-        if (err != null) { SetMsg(ErrText(err)); return; }
-        try { s.Save(App.ConfigPath); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            SetMsg(Loc.Get("log.error", ex.Message));
-            return;
-        }
-        var langChanged = s.Language != Loc.Language;
-        _set = s;
-        LoadUi(s);
-        AppLog.FilePath = s.LogToFile ? Path.Combine(AppContext.BaseDirectory, "BatonE2E.log") : null;
-        SetMsg(Loc.Get("gui.set.saved") + (langChanged ? "\n" + Loc.Get("gui.set.restart") : "")
-               + (!EngineOptions.IsLoopbackBind(s.SourceBind) ? "\n" + Loc.Get("gui.set.bindwarn") : "")
-               + (s.IsWeakViewPassword ? "\n" + Loc.Get("gui.set.weakpass", AppSettings.RecommendedViewPasswordLength) : ""));
-    }
-
-    private void OnRestore(object sender, RoutedEventArgs e)
-    {
-        var b = AppSettings.LoadLatestBackup(App.ConfigPath);
-        if (b == null) { SetMsg(Loc.Get("gui.set.nobackup")); return; }
-        LoadUi(b);
-        SetMsg(Loc.Get("gui.set.restored"));
     }
 }

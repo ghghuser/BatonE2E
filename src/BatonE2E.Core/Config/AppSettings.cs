@@ -28,6 +28,18 @@ public sealed class AppSettings
     /// <summary>ログをファイル（exeの横）にも保存する。</summary>
     public bool LogToFile { get; set; }
 
+    // ---- 視聴側のアクセス制御 ----
+    /// <summary>同一クライアント（IP）の同時接続数。0=無制限。</summary>
+    public int MaxConnPerClient { get; set; } = 3;
+    public int RateWindowSec { get; set; } = 10;
+    /// <summary>RateWindowSec秒の間にこの回数以上アクセスしたら拒否。0=連打制限なし。</summary>
+    public int RateMaxRequests { get; set; } = 30;
+    public int RateBanSec { get; set; } = 60;
+    /// <summary>拒否リスト（1行1規則: ip: / ua: / host:）。</summary>
+    public string DenyRules { get; set; } = "";
+    /// <summary>トンネル経由の接続元IP（X-Forwarded-For）を使う。</summary>
+    public bool UseProxyHeader { get; set; } = true;
+
     private static readonly JsonSerializerOptions Json = new()
     {
         WriteIndented = true,
@@ -60,21 +72,51 @@ public sealed class AppSettings
         var t = (SourceTls ?? "").ToLowerInvariant();
         SourceTls = t is "auto" or "off" or "on" ? t : "auto";
         if (string.IsNullOrWhiteSpace(PageTitle)) PageTitle = "ライブ配信";
+        MaxConnPerClient = Math.Clamp(MaxConnPerClient, 0, 1000);
+        RateWindowSec = Math.Clamp(RateWindowSec, 0, 3600);
+        RateMaxRequests = Math.Clamp(RateMaxRequests, 0, 100000);
+        RateBanSec = Math.Clamp(RateBanSec, 0, 86400);
+        DenyRules ??= "";
         SourcePassword ??= "";
         ViewPassword ??= "";
     }
 
-    /// <summary>設定の問題点（空なら問題なし）。キーは Lang の gui.err.* 。</summary>
-    public string? Check()
+    /// <summary>設定の問題点（Key=Langのキー、Field=問題のある項目名、Args=文言の引数）。</summary>
+    public sealed record Issue(string Key, string Field, object[] Args);
+
+    private static Issue Mk(string key, string field, params object[] args) => new(key, field, args);
+
+    /// <summary>保存・開始できない問題。なければ null。</summary>
+    public Issue? Check()
     {
-        if (SourcePort == ViewPort) return "gui.err.sameport";
-        if (ViewPassword.Length is > 0 and < MinViewPasswordLength) return "gui.err.shortpass";
+        if (SourcePort == ViewPort) return Mk("gui.err.sameport", "SourcePort,ViewPort");
+        if (ViewPassword.Length is > 0 and < MinViewPasswordLength) return Mk("gui.err.shortpass", "ViewPassword", MinViewPasswordLength);
         if (!EngineOptions.IsLoopbackBind(SourceBind))
         {
-            if (SourceTls == "off") return "gui.err.bindtls";
-            if (SourcePassword.Length is > 0 and < EngineOptions.MinExternalSourcePasswordLength) return "gui.err.bindpass";
+            if (SourceTls == "off") return Mk("gui.err.bindtls", "SourceTls");
+            if (SourcePassword.Length is > 0 and < EngineOptions.MinExternalSourcePasswordLength)
+                return Mk("gui.err.bindpass", "SourcePassword", EngineOptions.MinExternalSourcePasswordLength);
         }
+        var rerr = AccessControl.ValidateRules(DenyRuleLines());
+        if (rerr != null) return Mk("gui.err.denyrule", "DenyRules", rerr);
         return null;
+    }
+
+    public List<string> DenyRuleLines() => (DenyRules ?? "").Replace("\r", "").Split('\n').ToList();
+
+    /// <summary>セキュリティを下げる設定の一覧（Langの gui.sec.* のキー）。変更時は必ず警告する。</summary>
+    public List<string> SecurityWarnings()
+    {
+        var w = new List<string>();
+        if (SourceTls == "off") w.Add("gui.sec.tlsoff");
+        if (AcceptAnySourceUser) w.Add("gui.sec.anyuser");
+        if (IsWeakViewPassword) w.Add("gui.sec.weakview");
+        if (SourcePassword.Length is > 0 and < 8) w.Add("gui.sec.weaksrc");
+        if (!EngineOptions.IsLoopbackBind(SourceBind)) w.Add("gui.sec.extbind");
+        if (MaxConnPerClient == 0) w.Add("gui.sec.noconnlimit");
+        if (RateMaxRequests == 0 || RateWindowSec == 0 || RateBanSec == 0) w.Add("gui.sec.norate");
+        if (!UseProxyHeader) w.Add("gui.sec.noproxy");
+        return w;
     }
 
     /// <summary>読み込む。無ければ既定値。壊れていれば壊れたファイルを退避して既定値（warnedに理由）。</summary>
@@ -157,6 +199,11 @@ public sealed class AppSettings
             ViewPort = ViewPort,
             Mount = Mount,
             ViewPath = ViewPath,
+            Access = new AccessOptions
+            {
+                MaxConnPerClient = MaxConnPerClient, RateWindowSec = RateWindowSec, RateMaxRequests = RateMaxRequests,
+                RateBanSec = RateBanSec, UseProxyHeader = UseProxyHeader, DenyRules = DenyRuleLines(),
+            },
             MaxViewers = MaxViewers,
             PageTitle = PageTitle,
             AcceptAnySourceUser = AcceptAnySourceUser,

@@ -32,6 +32,13 @@
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
+    <Style TargetType="ToolTip">
+      <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+      <Setter Property="Padding" Value="10,8"/>
+    </Style>
+
     <Style TargetType="CheckBox">
       <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>

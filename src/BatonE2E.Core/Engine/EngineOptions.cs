@@ -26,6 +26,8 @@ public sealed class EngineOptions
     /// <summary>127.0.0.1以外での視聴待ち受けを許可（TLS使用時のみ有効化する想定）。</summary>
     public bool AllowExternalBind { get; set; }
     public string Mount { get; set; } = "/stream";
+    /// <summary>視聴側のアクセス制御（拒否リスト・連打制限・同一クライアントの接続数）。</summary>
+    public AccessOptions Access { get; set; } = new();
     public string SourcePassword { get; set; } = "";
     public string ViewPassword { get; set; } = "";
     public int MaxViewers { get; set; } = 20;
@@ -66,6 +68,12 @@ public sealed class EngineOptions
         if (string.IsNullOrEmpty(SourcePassword)) throw new E2eCryptoException("empty-source-password");
         if (string.IsNullOrEmpty(ViewPassword)) throw new E2eCryptoException("empty-view-password");
         ViewPath = NormalizeViewPath(ViewPath);
+        Access.MaxConnPerClient = Math.Clamp(Access.MaxConnPerClient, 0, 1000);
+        Access.RateWindowSec = Math.Clamp(Access.RateWindowSec, 0, 3600);
+        Access.RateMaxRequests = Math.Clamp(Access.RateMaxRequests, 0, 100000);
+        Access.RateBanSec = Math.Clamp(Access.RateBanSec, 0, 86400);
+        var rerr = AccessControl.ValidateRules(Access.DenyRules);
+        if (rerr != null) throw new E2eCryptoException("bad-deny-rule: " + rerr);
         if (string.IsNullOrWhiteSpace(PageTitle)) PageTitle = "ライブ配信";
         ChunkSize = Math.Clamp(ChunkSize, 1024, 262_144);
         MaxViewers = Math.Clamp(MaxViewers, 1, 1000);

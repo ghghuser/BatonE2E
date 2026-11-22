@@ -45,6 +45,14 @@ internal static class Program
             SourcePort = int.Parse(Opt(args, "--source-port", "BATONE2E_SOURCE_PORT") ?? "8000"),
             SourceBind = Opt(args, "--source-bind", "BATONE2E_SOURCE_BIND") ?? "127.0.0.1",
             ViewPort = int.Parse(Opt(args, "--view-port", "BATONE2E_VIEW_PORT") ?? "8080"),
+            Access = new AccessOptions
+            {
+                MaxConnPerClient = int.Parse(Opt(args, "--max-conn-per-client", "BATONE2E_MAX_CONN_PER_CLIENT") ?? "3"),
+                RateWindowSec = int.Parse(Opt(args, "--rate-window", "BATONE2E_RATE_WINDOW") ?? "10"),
+                RateMaxRequests = int.Parse(Opt(args, "--rate-max", "BATONE2E_RATE_MAX") ?? "30"),
+                RateBanSec = int.Parse(Opt(args, "--rate-ban", "BATONE2E_RATE_BAN") ?? "60"),
+                DenyRules = (Opt(args, "--deny", "BATONE2E_DENY") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries).ToList(),
+            },
             ViewPath = Opt(args, "--view-path", "BATONE2E_VIEW_PATH") ?? "/",
             Mount = Opt(args, "--mount", "BATONE2E_MOUNT") ?? "/stream",
             MaxViewers = int.Parse(Opt(args, "--max-viewers", "BATONE2E_MAX_VIEWERS") ?? "20"),

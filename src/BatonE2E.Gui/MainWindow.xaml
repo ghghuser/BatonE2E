@@ -1,7 +1,7 @@
 <Window x:Class="BatonE2E.Gui.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="1180" Height="720" MinWidth="560" MinHeight="520"
+        Width="1180" Height="720" MinWidth="620" MinHeight="520"
         Background="{StaticResource BgBrush}" WindowStartupLocation="CenterScreen"
         FontFamily="Yu Gothic UI, Segoe UI" FontSize="13">
   <Grid Margin="14">
@@ -43,6 +43,7 @@
               <TextBlock x:Name="tbSource" Margin="0,6,0,0"/>
               <TextBlock x:Name="tbStats" Margin="0,2,0,0" Foreground="{StaticResource MutedBrush}"/>
               <TextBlock x:Name="tbEnc" Margin="0,2,0,0" FontWeight="SemiBold"/>
+              <TextBlock x:Name="tbSecWarn" Margin="0,6,0,0" Foreground="{StaticResource WarnBrush}" TextWrapping="Wrap"/>
               <TextBlock x:Name="tbError" Margin="0,6,0,0" Foreground="{StaticResource ErrBrush}" TextWrapping="Wrap"/>
             </StackPanel>
             <Button x:Name="btnStartStop" Grid.Column="1" Style="{StaticResource PrimaryButton}" VerticalAlignment="Top" MinWidth="150"/>
@@ -83,67 +84,28 @@
         </ScrollViewer>
       </Grid>
 
-      <!-- 設定画面 -->
-      <ScrollViewer x:Name="pSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
-        <Border Padding="2,2,10,2">
+      <!-- 設定画面: 入力欄は code-behind で組み立てる（見出し：入力欄、詳細はⓘ） -->
+      <Grid x:Name="pSettings" Visibility="Collapsed">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="*"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+          <Grid x:Name="gSet" Margin="2,2,14,8"/>
+        </ScrollViewer>
+        <Border Grid.Row="1" Margin="0,8,0,0" Padding="0,10,0,0" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0">
           <StackPanel>
-            <TextBlock x:Name="lblLang" Margin="0,0,0,4"/>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-              <RadioButton x:Name="rbLangJa" Content="日本語" Style="{StaticResource ChoiceButton}" GroupName="lang"/>
-              <RadioButton x:Name="rbLangEn" Content="English" Style="{StaticResource ChoiceButton}" GroupName="lang"/>
-            </StackPanel>
-
-            <TextBlock x:Name="lblSrcPort" Margin="0,0,0,4"/>
-            <TextBox x:Name="tbSrcPort" Width="120" HorizontalAlignment="Left" Margin="0,0,0,10"/>
-            <TextBlock x:Name="lblViewPort" Margin="0,0,0,4"/>
-            <TextBox x:Name="tbViewPort" Width="120" HorizontalAlignment="Left" Margin="0,0,0,10"/>
-            <TextBlock x:Name="lblViewPath" Margin="0,0,0,4"/>
-            <TextBox x:Name="tbViewPath" Margin="0,0,0,10"/>
-            <TextBlock x:Name="lblMount" Margin="0,0,0,4"/>
-            <TextBox x:Name="tbMount" Margin="0,0,0,10"/>
-
-            <TextBlock x:Name="lblSrcBind" Margin="0,0,0,4"/>
-            <TextBox x:Name="tbSrcBind" Width="200" HorizontalAlignment="Left" Margin="0,0,0,2"/>
-            <TextBlock x:Name="lblSrcBindNote" Margin="0,0,0,10" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
-
-            <TextBlock x:Name="lblSrcPass" Margin="0,0,0,4"/>
-            <Grid Margin="0,0,0,10">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-              <TextBox x:Name="tbSrcPass"/>
-              <Button x:Name="btnGenSrc" Grid.Column="1" Margin="6,0,0,0"/>
-            </Grid>
-            <TextBlock x:Name="lblViewPass" Margin="0,0,0,4"/>
-            <Grid Margin="0,0,0,4">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-              <TextBox x:Name="tbViewPass"/>
-              <Button x:Name="btnGenView" Grid.Column="1" Margin="6,0,0,0"/>
-            </Grid>
-            <TextBlock x:Name="lblPassNote" Margin="0,0,0,10" Foreground="{StaticResource MutedBrush}"/>
-
-            <TextBlock x:Name="lblPageTitle" Margin="0,0,0,4"/>
-            <TextBox x:Name="tbPageTitle" Margin="0,0,0,10"/>
-            <TextBlock x:Name="lblMaxViewers" Margin="0,0,0,4"/>
-            <TextBox x:Name="tbMaxViewers" Width="120" HorizontalAlignment="Left" Margin="0,0,0,10"/>
-
-            <TextBlock x:Name="lblTls" Margin="0,0,0,4"/>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-              <RadioButton x:Name="rbTlsAuto" Style="{StaticResource ChoiceButton}" GroupName="tls"/>
-              <RadioButton x:Name="rbTlsOn" Style="{StaticResource ChoiceButton}" GroupName="tls"/>
-              <RadioButton x:Name="rbTlsOff" Style="{StaticResource ChoiceButton}" GroupName="tls"/>
-            </StackPanel>
-
-            <CheckBox x:Name="chkAnyUser" Margin="0,0,0,8"/>
-            <CheckBox x:Name="chkLogFile" Margin="0,0,0,14"/>
-
-            <StackPanel Orientation="Horizontal">
-              <Button x:Name="btnSave" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-              <Button x:Name="btnRestore" Margin="0,0,8,0"/>
-              <Button x:Name="btnOpenFolder"/>
-            </StackPanel>
-            <TextBlock x:Name="tbSetMsg" Margin="0,10,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
+            <WrapPanel>
+              <Button x:Name="btnSave" Style="{StaticResource PrimaryButton}" Margin="0,0,8,4"/>
+              <Button x:Name="btnRestore" Margin="0,0,8,4"/>
+              <Button x:Name="btnTemplate" Margin="0,0,8,4"/>
+              <Button x:Name="btnOpenFolder" Margin="0,0,12,4"/>
+              <TextBlock x:Name="tbDirty" Foreground="{StaticResource WarnBrush}" FontWeight="SemiBold" Margin="0,0,0,4" Visibility="Collapsed"/>
+            </WrapPanel>
+            <TextBlock x:Name="tbSetMsg" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
           </StackPanel>
         </Border>
-      </ScrollViewer>
+      </Grid>
       </Grid>
       </Border>
       <!-- ログ画面 -->

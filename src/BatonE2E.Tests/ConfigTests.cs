@@ -63,6 +63,12 @@ internal static class ConfigTests
                 && new AppSettings { SourceBind = "127.0.0.1", SourceTls = "off", SourcePassword = "a" }.Check() == null);
             var nb = new AppSettings { SourceBind = "不正" }; nb.Normalize();
             T.Check("sourceの待ち受け: 不正な値は127.0.0.1へ戻す", nb.SourceBind == "127.0.0.1");
+            var bad1 = new AppSettings { DenyRules = "ip:1.1.1.1\nfoo:bar" }.Check();
+            T.Check("設定: 拒否リストの誤りは行番号付きで検出", bad1 != null && bad1.Key == "gui.err.denyrule" && bad1.Field == "DenyRules" && bad1.Args[0].ToString()!.StartsWith("2:"));
+            T.Check("設定: 正しい拒否リストは通る", new AppSettings { DenyRules = "# memo\nip:1.1.1.1\nua:bot" }.Check() == null);
+            var sw = new AppSettings { SourceTls = "off", AcceptAnySourceUser = true, MaxConnPerClient = 0, RateMaxRequests = 0, UseProxyHeader = false, ViewPassword = "abcdefgh", SourcePassword = "abc" }.SecurityWarnings();
+            T.Check("セキュリティ警告: 下がる設定を全て検出", new[] { "gui.sec.tlsoff", "gui.sec.anyuser", "gui.sec.weakview", "gui.sec.weaksrc", "gui.sec.noconnlimit", "gui.sec.norate", "gui.sec.noproxy" }.All(sw.Contains));
+            T.Check("セキュリティ警告: 既定の設定では出ない", new AppSettings().SecurityWarnings().Count == 0);
             T.Check("設定: 受け口と視聴のポート重複を検出", new AppSettings { SourcePort = 8000, ViewPort = 8000 }.Check() != null);
         }
         finally { try { Directory.Delete(dir, true); } catch (IOException) { } }

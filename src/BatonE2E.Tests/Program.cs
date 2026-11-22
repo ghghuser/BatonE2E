@@ -10,6 +10,7 @@ ConfigTests.Run();
 CryptoTests.Run();
 await IntegrationTests.RunAsync();
 await TlsTests.RunAsync();
+await AccessTests.RunAsync();
 
 var vec = Opt("--emit-vectors");
 if (vec != null) Vectors.Emit(vec);

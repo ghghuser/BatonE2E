@@ -64,6 +64,7 @@ internal static class IntegrationTests
         {
             SourcePort = FreePort(), ViewPort = FreePort(), SourcePassword = SrcPw, ViewPassword = ViewPw,
             Iterations = 100_000, ChunkSize = 1024, MaxViewers = 2, Mount = "/m",
+            Access = new AccessOptions { RateMaxRequests = 0, MaxConnPerClient = 0 },
             CertDir = Path.Combine(Path.GetTempPath(), "baton-it-" + Guid.NewGuid().ToString("N")),
         };
         await using var eng = new RelayEngine(o);

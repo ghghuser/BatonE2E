@@ -55,6 +55,15 @@ public sealed class StreamHub
         }
     }
 
+    /// <summary>指定の接続元の視聴者をすべて切断（連打で拒否した直後など）。</summary>
+    public void KickRemote(string remote, string reason)
+    {
+        lock (_lock)
+        {
+            foreach (var v in _viewers.Where(x => x.Remote == remote).ToList()) { v.Kick(reason); _viewers.Remove(v); }
+        }
+    }
+
     public void RemoveViewer(ViewerConnection v)
     {
         lock (_lock) _viewers.Remove(v);

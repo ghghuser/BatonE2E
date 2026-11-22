@@ -19,9 +19,10 @@ internal sealed class ViewerServer : IAsyncDisposable
     private readonly WebApplication _app;
     private readonly EngineOptions _o;
     private readonly StreamHub _hub;
+    private readonly AccessControl _ac;
     private string? _embedded;
 
-    private ViewerServer(WebApplication app, EngineOptions o, StreamHub hub) { _app = app; _o = o; _hub = hub; }
+    private ViewerServer(WebApplication app, EngineOptions o, StreamHub hub, AccessControl ac) { _app = app; _o = o; _hub = hub; _ac = ac; }
 
     public static async Task<ViewerServer> StartAsync(EngineOptions o, StreamHub hub)
     {
@@ -39,7 +40,10 @@ internal sealed class ViewerServer : IAsyncDisposable
             k.Listen(ip, o.ViewPort);
         });
         var app = b.Build();
-        var me = new ViewerServer(app, o, hub);
+        var ac = new AccessControl(o.Access);
+        ac.Banned += ip => hub.KickRemote(ip, "rate");
+        var me = new ViewerServer(app, o, hub, ac);
+        app.Use(me.AccessMiddlewareAsync);
         app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20) });
         var vp = EngineOptions.NormalizeViewPath(o.ViewPath);
         var basePath = vp == "/" ? "/" : vp + "/";
@@ -49,6 +53,28 @@ internal sealed class ViewerServer : IAsyncDisposable
         await app.StartAsync();
         AppLog.Info(Loc.Get("log.view.listen", o.ViewBind, o.ViewPort));
         return me;
+    }
+
+    /// <summary>全リクエストの入口: 拒否リスト → 連打制限。接続元IPは ctx.Items["clientIp"] に入れる。</summary>
+    private async Task AccessMiddlewareAsync(HttpContext ctx, Func<Task> next)
+    {
+        var ip = ClientIp.Resolve(ctx.Connection.RemoteIpAddress, ctx.Request.Headers["X-Forwarded-For"].ToString(), _o.Access.UseProxyHeader);
+        ctx.Items["clientIp"] = ip;
+        var r = _ac.Check(ip, ctx.Request.Headers.UserAgent.ToString(), ctx.Request.Host.Host);
+        if (r.Decision == AccessDecision.Denied)
+        {
+            if (r.LogIt) AppLog.Warn(Loc.Get("log.access.denied", ip));
+            ctx.Response.StatusCode = 403;
+            return;
+        }
+        if (r.Decision == AccessDecision.RateLimited)
+        {
+            if (r.NewBan) AppLog.Warn(Loc.Get("log.access.rate", ip, _o.Access.RateWindowSec, _o.Access.RateMaxRequests, r.RetryAfterSec));
+            ctx.Response.Headers["Retry-After"] = r.RetryAfterSec.ToString();
+            ctx.Response.StatusCode = 429;
+            return;
+        }
+        await next();
     }
 
     private async Task ServePageAsync(HttpContext c)
@@ -67,18 +93,35 @@ internal sealed class ViewerServer : IAsyncDisposable
     private string LoadPage()
     {
         var file = _o.ViewerPageFile ?? Path.Combine(AppContext.BaseDirectory, "viewer.html");
-        if (File.Exists(file)) return File.ReadAllText(file, Encoding.UTF8);
-        if (_embedded != null) return _embedded;
-        using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("viewer.html")
-                      ?? throw new InvalidOperationException("viewer-page-missing");
-        using var rd = new StreamReader(s, Encoding.UTF8);
-        return _embedded = rd.ReadToEnd();
+        var html = File.Exists(file) ? File.ReadAllText(file, Encoding.UTF8) : (_embedded ??= ViewerTemplate.ReadEmbedded());
+        // viewer.css（exeの横）があれば、ページの<head>末尾へ差し込む（CSPの都合で外部ファイルではなく埋め込み）
+        var cssFile = Path.Combine(AppContext.BaseDirectory, "viewer.css");
+        if (File.Exists(cssFile))
+        {
+            var css = File.ReadAllText(cssFile, Encoding.UTF8).Replace("</style", "<\\/style", StringComparison.OrdinalIgnoreCase);
+            var i = html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase);
+            var tag = "<style>\n" + css + "\n</style>\n";
+            html = i >= 0 ? html.Insert(i, tag) : tag + html;
+        }
+        return html;
     }
 
     private async Task HandleSocketAsync(HttpContext ctx)
     {
         if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }
-        var remote = ctx.Connection.RemoteIpAddress?.ToString() ?? "?";
+        var remote = ctx.Items["clientIp"] as string ?? "?";
+        if (!_ac.TryAcquire(remote))
+        {
+            AppLog.Warn(Loc.Get("log.access.percli", remote, _o.Access.MaxConnPerClient));
+            ctx.Response.StatusCode = 429;
+            return;
+        }
+        try { await HandleSocketCoreAsync(ctx, remote); }
+        finally { _ac.Release(remote); }
+    }
+
+    private async Task HandleSocketCoreAsync(HttpContext ctx, string remote)
+    {
         var v = _hub.TryAddViewer(_o.ViewerQueue, remote);
         if (v == null)
         {
