@@ -57,6 +57,7 @@ P0・P1・P2a・P2b完了。P3完了（CI緑）: 実アプリを起動し、curl
 - 実機で判明: oddcastは `SOURCE /stream ICE/1.0`（3語・Basic認証）を送る → P2b後に対応済み（実機再確認待ち）。oddcastのServer IP欄はIPのみ（ポートは別欄）。
 - 実機確認: oddcast（ICE/1.0）接続・視聴・自己検査OK。コンソール版は「停止」操作が弱い（Ctrl+C相当）→GUIに停止/開始ボタンを設ける。
 - P3.5 実装済み・CI緑（実機確認待ち）: src/BatonE2E.Gui（WPF、exe名BatonE2E）。配信/ログ/設定の3画面、開始停止、ダークテーマ、日英(Lang/ja.ini,en.ini)、config.json＋backup/（直近10件）。ログはGUI内保持（既定でファイル出力なし）。コンソール版は src/BatonE2E（AssemblyName=BatonE2E.Console、CI結合試験用・成果物には含めない）。
+- P3.5 実機確認OK。追加対応済み: 視聴ページの停止ボタン（停止→再生で最新から再開、CIで検証）、GUIのログを右側の開閉パネルに変更、視聴パスフレーズは最小8文字（推奨12文字、日本語可・NFC正規化）。
 - 次: 実機確認の結果を反映 → P4（README・Releases・config整備）。視聴URLのパス自由設定は未対応（バックログ）。
 
 ## 作業メモ（中断・再開用。着手前に1行書き、完了で消す）
