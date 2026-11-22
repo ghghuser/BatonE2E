@@ -55,10 +55,13 @@ Core（UI・OS非依存の純ロジック）とアプリ本体を分離。コー
 ## 現在の状態
 P0・P1・P2a・P2b完了。P3完了（CI緑）: 実アプリを起動し、curl(PUT/chunked)・ffmpeg(icecast)・生ソケット(SOURCE HTTP/1.0、SOURCE pw /m ICE/1.0、SOURCE /m ICE/1.0)・TLS1.2(指紋固定+SAN確認)で送信 → Node WebSocket受信側が復号 → 元MP3とバイト一致。Chromiumで視聴ページ実再生（currentTime進行、誤パスワード表示、題名にアプリ名なし）。
 - 実機で判明: oddcastは `SOURCE /stream ICE/1.0`（3語・Basic認証）を送る → P2b後に対応済み（実機再確認待ち）。oddcastのServer IP欄はIPのみ（ポートは別欄）。
+- 実機確認: oddcast（ICE/1.0）接続・視聴・自己検査OK。コンソール版は「停止」操作が弱い（Ctrl+C相当）→GUIに停止/開始ボタンを設ける。
 - 次: P3.5 WPF GUI（ダークテーマ、言語設定、設定バックアップ、かがみんv2風の直接操作）。
 
 ## 作業メモ（中断・再開用。着手前に1行書き、完了で消す）
 - （現在なし）
 
 ## バックログ
+- ログはGUI内に保持し、ログ表示ウィンドウで閲覧できるようにする（ファイル出力は併用）
+- パス設定: source側のマウント(--mount、現状も変更可)・視聴URLのパス・パスワード（視聴/source）を自由に設定可能にする（config.json＋GUI）
 - アイコン（assets/BatonE2E.ico）／英語 Lang/en.ini／設定のバックアップ機構／ダークテーマ（GUI段階）
