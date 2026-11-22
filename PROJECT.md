@@ -64,7 +64,7 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 - 待ち受け: 既定127.0.0.1。`SourceBind`が127.0.0.1以外なら、TLSを「なし」にできず、sourceパスワード12文字以上が必須（Validate/Check）。
 - source TLS: auto（先頭1バイト0x16で判定）/on/off。TLS1.2・1.3。RSA2048+SHA-256自己署名、SAN=IP:127.0.0.1+DNS:localhost、10年、`tls/source.pfx`と`source.cer`に保存し再生成は期限切れか`--regen-cert`のみ（oddcast側の`ServerTLSTrustedCert`行の削除が必要）。起動時にSHA-256指紋を表示。
 - StreamHub: 暗号化と配布を同一ロックで実施。視聴者なしなら暗号化しない。有限キュー、遅い視聴者は切断。暗号化結果を自分で復号して照合する自己検査（Stats.CheckOk/CheckNg。GUIに緑/赤表示）。
-- ViewerServer(Kestrel): 視聴ページは`ViewPath`（既定`/`）、WebSocketは「パス/ws」。他のパスは404。CSPあり。`viewer.html`（exeの横）があれば全体差し替え、`viewer.css`があれば<head>末尾へ差し込み（毎回読み直し。再起動不要）。
+- ViewerServer(Kestrel): 視聴ページは`ViewPath`（既定`/`）、WebSocketは「パス/ws」。他のパスは404。CSPあり。`viewer/viewer.html`（exeの横のviewerフォルダ。旧位置のexeの横も可）があれば全体差し替え、`viewer/viewer.css`があれば<head>末尾へ差し込み（毎回読み直し。再起動不要）。
 - アクセス制御(AccessControl): 全リクエストの入口で、拒否リスト(`ip:`単独/CIDR、`ua:`/`host:`は正規表現=NonBacktracking+50msタイムアウト、先読み不可、200字まで) → 連打制限(N秒にM回以上→K秒拒否、HTTP 429+Retry-After、拒否時に接続中の視聴者も切断) → WebSocketでは1人(IP)あたり同時接続数(429)。既定: 3接続/人、10秒に30回で60秒拒否。接続元は、TCP接続元がループバックの時だけ`X-Forwarded-For`の**最も右**を採用（`UseProxyHeader`、既定オン。Tailscale Funnel/ngrok対策）。ログは同一IPにつき60秒間引く。
 - 視聴ページ(viewer.html): 単一HTML。WebCrypto、MSE/ManagedMediaSource、mode='sequence'、同期位置まで読み捨て、バッファ削除、自動再接続、改ざん/連番エラーで停止、**停止ボタン**（停止→再生で再生側を作り直して最新から再開）。パスワードが違えば「パスワードが違います」。`{{TITLE}}`で題名（アプリ名は出さない）。
 ### 設定（Core/Config/AppSettings → config.json、exeの横）
@@ -76,7 +76,7 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 ### GUI（Gui/）
 - ダークテーマ（App.xaml）。上部に「中継」「設定」の連結タブ、右上に「ログ」ボタン。ログは右へ引き出すドロワー式（開くとウィンドウが右へ広がる。最大化中は内側）。ログはGUI内保持（最大5000行、全て/警告以上、コピー、保存、クリア。ファイル出力は設定で任意）。
 - 中継画面: 開始/停止、状態、視聴者数・入力量・フレーム数、暗号化の自己検査表示、oddcast設定値（サーバー/ポート/マウント/ユーザー名source/パスワード/TLS/指紋）と視聴URL・視聴パスフレーズ（各コピーボタン）。
-- 設定画面: 「見出し(右寄せ)：入力欄(左端そろえ)＋ⓘ(詳細はツールチップ)」。未保存表示、保存結果（緑✓/赤✗）、問題欄を赤枠、バックアップから復元、設定フォルダを開く、視聴ページひな形出力（viewer.html/viewer.css。既存は上書きしない）。
+- 設定画面: 「見出し(右寄せ)：入力欄(左端そろえ)＋ⓘ(詳細はツールチップ)」。未保存表示、保存結果（緑✓/赤✗）、問題欄を赤枠、バックアップから復元、設定フォルダを開く、視聴ページひな形出力（viewerフォルダへviewer.html/viewer.css。既存は上書きしない）。
 ### マウントとURL
 マウントはoddcast→本アプリへの宛先名で、視聴URLとは無関係（不一致は警告のみで受理）。視聴URLのパスは`ViewPath`で自由設定。公開はTailscale Funnel/ngrok前提（視聴側のhttpsが必須。http+非localhostではWebCryptoが使えない）。視聴側の待ち受け(`ViewBind`)のGUI設定は未対応（エンジンは対応）。
 
@@ -114,4 +114,4 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 8. 最終レビュー（動作・セキュリティ・バグを数回に分けて）。
 
 ## 13. 作業メモ（中断・再開用。着手前に1行書き、完了で消す）
-- （現在なし）
+- ②プリセット＋タスクトレイ 着手中（まず設定画面の左余白をAuto幅に・ひな形をviewerフォルダへ、は反映済み）

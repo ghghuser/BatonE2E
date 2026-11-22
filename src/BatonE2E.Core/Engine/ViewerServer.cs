@@ -92,11 +92,11 @@ internal sealed class ViewerServer : IAsyncDisposable
 
     private string LoadPage()
     {
-        var file = _o.ViewerPageFile ?? Path.Combine(AppContext.BaseDirectory, "viewer.html");
-        var html = File.Exists(file) ? File.ReadAllText(file, Encoding.UTF8) : (_embedded ??= ViewerTemplate.ReadEmbedded());
-        // viewer.css（exeの横）があれば、ページの<head>末尾へ差し込む（CSPの都合で外部ファイルではなく埋め込み）
-        var cssFile = Path.Combine(AppContext.BaseDirectory, "viewer.css");
-        if (File.Exists(cssFile))
+        var file = _o.ViewerPageFile ?? ViewerTemplate.FindFile("viewer.html");
+        var html = file != null && File.Exists(file) ? File.ReadAllText(file, Encoding.UTF8) : (_embedded ??= ViewerTemplate.ReadEmbedded());
+        // viewer.css（viewerフォルダ）があれば、ページの<head>末尾へ差し込む（CSPの都合で外部ファイルではなく埋め込み）
+        var cssFile = ViewerTemplate.FindFile("viewer.css");
+        if (cssFile != null)
         {
             var css = File.ReadAllText(cssFile, Encoding.UTF8).Replace("</style", "<\\/style", StringComparison.OrdinalIgnoreCase);
             var i = html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase);

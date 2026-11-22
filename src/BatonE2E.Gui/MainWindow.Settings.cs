@@ -31,7 +31,7 @@ public partial class MainWindow
 
     private void BuildSettingsForm()
     {
-        gSet.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
+        gSet.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         gSet.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         Group("gui.grp.basic");
@@ -129,7 +129,7 @@ public partial class MainWindow
         var lbl = new TextBlock
         {
             Text = labelKey.Length > 0 ? Loc.Get(labelKey) : "", TextAlignment = TextAlignment.Right, TextWrapping = TextWrapping.Wrap,
-            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 4, 10, 4),
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 4, 4, 4),
         };
         Grid.SetRow(lbl, r);
         gSet.Children.Add(lbl);
@@ -364,14 +364,15 @@ public partial class MainWindow
         SetMsg(Loc.Get("gui.set.restored"), Msg.Warn);
     }
 
-    /// <summary>視聴ページのひな形（viewer.html / viewer.css）をexeの横へ出力。既存のファイルは上書きしない。</summary>
+    /// <summary>視聴ページのひな形（viewer.html / viewer.css）をviewerフォルダへ出力。既存のファイルは上書きしない。</summary>
     private void OnTemplate(object sender, RoutedEventArgs e)
     {
-        var dir = AppContext.BaseDirectory;
+        var dir = ViewerTemplate.Folder;
         var made = new List<string>();
         var kept = new List<string>();
         try
         {
+            Directory.CreateDirectory(dir);
             var html = Path.Combine(dir, "viewer.html");
             var css = Path.Combine(dir, "viewer.css");
             if (File.Exists(html)) kept.Add("viewer.html");
