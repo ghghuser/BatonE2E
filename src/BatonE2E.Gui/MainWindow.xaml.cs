@@ -86,7 +86,7 @@ public partial class MainWindow : Window
             try { Process.Start(new ProcessStartInfo(AppContext.BaseDirectory) { UseShellExecute = true }); }
             catch (Exception ex) { SetMsg(ex.Message); }
         };
-        _statTimer.Tick += (_, _) => { UpdateStats(); UpdateTray(); };
+        _statTimer.Tick += (_, _) => { UpdateStats(); UpdateTray(); GraphTick(); };
         _logTimer.Tick += (_, _) => FlushLogs();
         _statTimer.Start();
         _logTimer.Start();
@@ -97,6 +97,7 @@ public partial class MainWindow : Window
         ShowStoppedValues();
         UpdateStats();
         InitTray();
+        InitGraph();
         tbLogCount.Text = Loc.Get("gui.log.lines", 0);
         if (settingsCorrupted)
         {
@@ -317,6 +318,7 @@ public partial class MainWindow : Window
         }
         _engine = eng;
         _joinNotifier = new JoinNotifier();
+        GraphReset();
         eng.Stats.ViewerJoined += OnViewerJoined;
 
         _vSrvServer.Text = o.SourceBind == "0.0.0.0" ? Loc.Get("gui.val.anyaddr") : o.SourceBind;

@@ -9,6 +9,7 @@ CoreTests.Run(ini);
 ConfigTests.Run();
 ProfileTests.Run();
 NotifyTests.Run();
+BandwidthTests.Run();
 CryptoTests.Run();
 await IntegrationTests.RunAsync();
 await TlsTests.RunAsync();
