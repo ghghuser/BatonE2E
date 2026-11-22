@@ -2,8 +2,8 @@ using System.Text.Json;
 
 namespace BatonE2E.Core.Config;
 
-/// <summary>名前付きの設定セット（プリセット）。config.json と同じフォルダの presets/ に 1件1ファイルで保存する。</summary>
-public static class PresetStore
+/// <summary>名前付きの設定セット（プロファイル）。config.json と同じフォルダの profiles/ に 1件1ファイルで保存する。</summary>
+public static class ProfileStore
 {
     public const int MaxNameLength = 40;
     private const string Ext = ".json";
@@ -11,7 +11,7 @@ public static class PresetStore
     private static readonly string[] Reserved =
         { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
 
-    public static string Dir(string configPath) => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(configPath))!, "presets");
+    public static string Dir(string configPath) => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(configPath))!, "profiles");
 
     private static string FileOf(string configPath, string name) => Path.Combine(Dir(configPath), name + Ext);
 
@@ -22,10 +22,10 @@ public static class PresetStore
     public static AppSettings.Issue? CheckName(string? name)
     {
         var n = Clean(name);
-        if (n.Length == 0) return new("gui.preset.err.empty", "Preset", Array.Empty<object>());
-        if (n.Length > MaxNameLength) return new("gui.preset.err.long", "Preset", new object[] { MaxNameLength });
+        if (n.Length == 0) return new("gui.profile.err.empty", "Profile", Array.Empty<object>());
+        if (n.Length > MaxNameLength) return new("gui.profile.err.long", "Profile", new object[] { MaxNameLength });
         if (n.Any(c => c < ' ' || BadChars.Contains(c)) || n.EndsWith('.') || Reserved.Contains(n.Split('.')[0].ToUpperInvariant()))
-            return new("gui.preset.err.chars", "Preset", Array.Empty<object>());
+            return new("gui.profile.err.chars", "Profile", Array.Empty<object>());
         return null;
     }
 
@@ -43,7 +43,7 @@ public static class PresetStore
     /// <summary>保存（原子的に書き込み）。名前が不正なら例外。</summary>
     public static void Save(string configPath, string name, AppSettings s)
     {
-        if (CheckName(name) != null) throw new ArgumentException("preset-name", nameof(name));
+        if (CheckName(name) != null) throw new ArgumentException("profile-name", nameof(name));
         s.Normalize();
         Directory.CreateDirectory(Dir(configPath));
         var path = FileOf(configPath, Clean(name));
@@ -53,7 +53,7 @@ public static class PresetStore
     }
 
     /// <summary>読み込む。無い・壊れている場合は null（ファイルは触らない）。
-    /// 言語・ログのファイル出力・トレイ格納は全体の設定なので、プリセットでは切り替えず current の値を保つ。</summary>
+    /// 言語・ログのファイル出力・トレイ格納は全体の設定なので、プロファイルでは切り替えず current の値を保つ。</summary>
     public static AppSettings? Load(string configPath, string name, AppSettings current)
     {
         if (CheckName(name) != null) return null;

@@ -126,7 +126,7 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="RadioButton">
-            <Border x:Name="bd" Background="{StaticResource BtnBrush}" CornerRadius="6,6,0,0" Padding="24,8">
+            <Border x:Name="bd" Background="{StaticResource BtnBrush}" CornerRadius="6,6,0,0" Padding="24,8" MinWidth="150">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>

@@ -209,14 +209,14 @@ public partial class MainWindow : Window
     {
         var r = g.RowDefinitions.Count;
         g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var lbl = new TextBlock { Text = Loc.Get(labelKey), Foreground = (Brush)FindResource("MutedBrush"), Margin = new Thickness(0, 3, 8, 3) };
+        var lbl = new TextBlock { Text = Loc.Get(labelKey), Foreground = (Brush)FindResource("MutedBrush"), Margin = new Thickness(0, 1, 8, 1) };
         Grid.SetRow(lbl, r);
         g.Children.Add(lbl);
-        var tb = new TextBox { IsReadOnly = true, Margin = new Thickness(0, 3, 6, 3) };
+        var tb = new TextBox { IsReadOnly = true, Margin = new Thickness(0, 1, 6, 1) };
         Grid.SetRow(tb, r);
         Grid.SetColumn(tb, 1);
         g.Children.Add(tb);
-        var b = new Button { Content = Loc.Get("gui.btn.copy"), Margin = new Thickness(0, 3, 0, 3), Padding = new Thickness(10, 3, 10, 3) };
+        var b = new Button { Content = Loc.Get("gui.btn.copy"), Margin = new Thickness(0, 1, 0, 1), Padding = new Thickness(10, 3, 10, 3) };
         b.Click += (_, _) => CopyText(tb.Text);
         Grid.SetRow(b, r);
         Grid.SetColumn(b, 2);

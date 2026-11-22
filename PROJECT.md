@@ -30,8 +30,8 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 
 ## 5. リポジトリ構成
 - `.github/workflows/ci.yml`: ジョブ test(ubuntu: 自己テスト＋Node相互運用＋GUIのコンパイル確認) → integration(ubuntu: 実アプリ結合＋Chromium) → build(windows: GUIをpublish、成果物登録、古い成果物削除) → release(tagのみ)。`build.yml`はSonar（windows、`dotnet build src/BatonE2E.sln`）。docs/・*.md・*.txtだけの変更ではビルドしない。
-- `src/BatonE2E.Core`: Crypto/（CryptoConstants, StreamHeader, KeyDerivation, FrameEncryptor, FrameDecryptor, FrameFormat）、Engine/（RelayEngine, EngineOptions, EngineStats, StreamHub, ViewerConnection, SourceListener, SourceRequest, BodyReaders, BufferedSource, ViewerServer, AccessControl, ViewerTemplate）、Config/（AppSettings.cs、PresetStore.cs）、Security/（PassphraseGenerator, SourceCertificate）、Logging/AppLog.cs、Loc.cs、AppInfo.cs、Web/viewer.html（埋め込み）。
-- `src/BatonE2E.Gui`: WPF。exe名は `BatonE2E`。App.xaml(.cs)、MainWindow.xaml、MainWindow.xaml.cs（中継画面・ログ・ウィンドウ状態）、MainWindow.Settings.cs（設定画面）、MainWindow.Presets.cs（プリセット操作）、MainWindow.Tray.cs（タスクトレイ）。Langは `../BatonE2E/Lang/*.ini` を共有してexeの横へ出力。
+- `src/BatonE2E.Core`: Crypto/（CryptoConstants, StreamHeader, KeyDerivation, FrameEncryptor, FrameDecryptor, FrameFormat）、Engine/（RelayEngine, EngineOptions, EngineStats, StreamHub, ViewerConnection, SourceListener, SourceRequest, BodyReaders, BufferedSource, ViewerServer, AccessControl, ViewerTemplate）、Config/（AppSettings.cs、ProfileStore.cs）、Security/（PassphraseGenerator, SourceCertificate）、Logging/AppLog.cs、Loc.cs、AppInfo.cs、Web/viewer.html（埋め込み）。
+- `src/BatonE2E.Gui`: WPF。exe名は `BatonE2E`。App.xaml(.cs)、MainWindow.xaml、MainWindow.xaml.cs（中継画面・ログ・ウィンドウ状態）、MainWindow.Settings.cs（設定画面）、MainWindow.Profiles.cs（プロファイル操作）、MainWindow.Tray.cs（タスクトレイ）。Langは `../BatonE2E/Lang/*.ini` を共有してexeの横へ出力。
 - `src/BatonE2E`: コンソール版（AssemblyName=`BatonE2E.Console`）。CIの結合試験専用で、成果物には含めない。CLI引数は第9章。
 - `src/BatonE2E.Tests`: 自己テスト（外部ライブラリなし。T.Check）。`integration/`にreceive.mjs（復号受信）、send-raw.mjs（生ソケット送信）、scenario.sh、browser.mjs（Playwright）。`interop/verify.mjs`はC#→Node WebCryptoの相互運用。
 - `docs/BatonE2E.txt`: 依頼書の全文（仕様の元）。`assets/`: アイコン置き場（`BatonE2E.ico`を置けばcsprojが拾う。未作成）。
@@ -45,7 +45,7 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 | P3 | 結合テスト（ffmpeg/curl/生ソケット/TLS→復号→バイト一致）＋Chromium再生 | 完了（CI緑） |
 | P3.5 | WPF GUI | 実装・主要部は実機OK。最新分は実機確認待ち（第8章） |
 | 追加(要望) | ①アクセス制御 | 完了・実機OK |
-| 追加(要望) | ②プリセット登録・タスクトレイ | 実装・CI緑・実機確認待ち（第8章） |
+| 追加(要望) | ②プロファイル登録・タスクトレイ | 実装・CI緑・実機確認待ち（第8章） |
 | 追加(要望) | ③通知音・帯域グラフ → ④ミラー | **次に着手（③から）** |
 | P4 | README(日本語)・config整備・Releases | 未（READMEは古い。書き直し必須） |
 | P5 | 復号ヘルパー（`--listen`／`e2e-listener.exe`） | 未 |
@@ -73,7 +73,7 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 - 視聴パスフレーズ: 8文字未満は保存・開始を拒否、12文字未満は警告。ポート重複・範囲外・拒否リストの誤りも保存不可（Issue{Key,Field,Args}）。値は`Normalize()`で安全な範囲へ補正。
 - 保存は一時ファイル→置換。内容が変わるたびに`backup/config-*.json`へ複製（直近10件）。壊れた設定は`config.json.broken-*`へ退避して既定値で起動。
 - `SecurityWarnings()`: TLSなし／ユーザー名不問／視聴12文字未満／source8文字未満／外部待ち受け／接続数制限なし／連打制限なし／トンネルIP不使用。GUIは「新しく加わる弱い設定」を保存前に確認ダイアログで警告し、保存済みの弱い設定は中継画面に常時警告、中継開始時にログへも出す。
-- プリセット: 設定画面の最上部。名前（40字まで・ファイル名に使えない文字や予約名は不可）で`presets/<名前>.json`に保存。「この名前で保存」（現在の入力欄を保存。同名は確認して上書き）／「読込」（入力欄へ反映するだけ。「保存」で確定するため、弱い設定への警告は従来どおり出る）／「削除」（確認あり）。一覧のダブルクリックで読込。言語・ログのファイル出力・トレイ格納は全体の設定なのでプリセットでは切り替えない。パスワードを入力していれば平文で保存される（config.jsonと同じ。説明をⓘに明記）。
+- プロファイル（旧称プリセット。名前付き設定セット）: 設定画面の最上部、見出し「プロファイル」と同じ1行に「名前の入力欄＋▼（保存済み一覧のプルダウン）＋[この名前で保存][読込][削除]＋ⓘ」。名前（40字まで・ファイル名に使えない文字や予約名は不可）で`profiles/<名前>.json`に保存。保存＝現在の入力欄を保存（同名は確認して上書き）／読込＝入力欄へ反映するだけ（「保存」で確定するため、弱い設定への警告は従来どおり出る）／削除＝確認あり。言語・ログのファイル出力・トレイ格納は全体の設定なのでプロファイルでは切り替えない。パスワードを入力していれば平文で保存される（config.jsonと同じ。ⓘに明記）。
 - タスクトレイ: 常にアイコン表示（灰=停止中／黄=入力待ち／緑=入力あり、ツールチップに状態と視聴者数）。`MinimizeToTray`オンなら最小化でタスクバーから消えてトレイのみ。ダブルクリックで復帰（最大化も復元）、右クリックで 開く／開始・停止／終了。トレイからの開始失敗は吹き出しでも通知。「×」の動作は従来どおり（中継中は確認）。NotifyIcon使用のためGUIのcsprojは`UseWindowsForms`＋暗黙usingの`System.Windows.Forms`/`System.Drawing`を除外。
 - ウィンドウ位置・大きさ・最大化・ログ開閉は`window.json`（config.jsonとは別。gitignore済み）。
 ### GUI（Gui/）
@@ -87,7 +87,7 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 - oddcast: Icecast2形式。**ユーザー名欄なし**（Encoder Password・Mountpointのみ）。`SOURCE /stream ICE/1.0`（3語、Basic認証）を送る。Server IP欄はIPのみ（ポートは別欄）。TLSは当面off（TLSは平文の確認後に試す。oddcast側はSChannel/TLS1.2、指紋固定）。
 - 実機OK: P0〜P3、P3.5のタブ/ログドロワー/設定保存/ウィンドウ復元/視聴URLパス/停止ボタン、oddcast接続・視聴・自己検査OK。
 - **実機OK（1.0.0.19）**: アクセス制御、設定画面の刷新、ひな形出力とviewer.css、pdb埋め込み（確認項目5つとも）。
-- **未確認（今回の変更）**: 設定画面の見出し列を自動幅にして左余白を詰めた／ひな形を`viewer`フォルダへ出力（旧位置も読む）／プリセット／タスクトレイ。
+- **未確認（今回の変更）**: 設定画面の見出し列を自動幅にして左余白を詰めた／ひな形を`viewer`フォルダへ出力（旧位置も読む）／プロファイル／タスクトレイ。
 - （旧・確認済みの項目） アクセス制御、設定画面の刷新（ⓘ・未保存表示・赤エラー・セキュリティ警告ダイアログ）、視聴ページひな形出力とviewer.css、pdb埋め込み。確認項目（5つ）: ①設定が「見出し：入力欄」でそろい、ⓘに説明が出る ②変更で「● 未保存」→保存で緑✓、ポートに「abc」で赤✗と赤枠 ③TLSを「なし」にして保存すると警告ダイアログ、「いいえ」で保存されない／「はい」で中継画面に黄色警告 ④ひな形出力でviewer.cssができ、`body{background:#101820;}`で視聴ページが変わる ⑤拒否リストに`ua:Chrome`で視聴ページが拒否(403)される（確認後に消す）。
 - 未試験: oddcastのTLS接続、Tailscale Funnel経由の再生、iPhone Safari。
 
@@ -108,6 +108,7 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 - oddcastは3語のICE/1.0形式。Kestrel graceful shutdownは視聴者のWebSocketで30秒待つ → 終了時に先に全視聴者を切断＋ShutdownTimeout=3秒。
 - JSONメタデータはUnsafeRelaxedJsonEscapingで日本語をそのまま。CIのffmpeg MP3は`-write_xing 0 -id3v2_version 0`でバイト一致比較。
 - WPFでNotifyIconを使うには`UseWindowsForms`が要り、暗黙usingで`Application`/`MessageBox`/`Button`等が曖昧になる → csprojで`<Using Remove="System.Windows.Forms"/>`と`System.Drawing`を外し、トレイ側は完全修飾名で書く。
+- 暗いテーマにはComboBoxのスタイルが無いため、プルダウンは「TextBox＋▼ボタン＋Popup内のListBox」で自作（MainWindow.Settings.csのProfileHeader）。
 - 設定画面の見出し列は固定幅にせずAuto（最長の見出しに合わせる。項目が増えても崩れない）。
 
 ## 12. バックログ（優先順）

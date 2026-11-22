@@ -22,9 +22,11 @@ public partial class MainWindow
         tbRateBan = null!, tbDeny = null!;
     private RadioButton rbLangJa = null!, rbLangEn = null!, rbTlsAuto = null!, rbTlsOn = null!, rbTlsOff = null!;
     private CheckBox chkAnyUser = null!, chkProxy = null!, chkLogFile = null!, chkTray = null!;
-    private Button btnGenSrc = null!, btnGenView = null!, btnPresetLoad = null!, btnPresetSave = null!, btnPresetDelete = null!;
-    private TextBox tbPresetName = null!;
-    private ListBox lbPresets = null!;
+    private Button btnGenSrc = null!, btnGenView = null!, btnProfileLoad = null!, btnProfileSave = null!, btnProfileDelete = null!;
+    private TextBox tbProfileName = null!;
+    private ListBox lbProfiles = null!;
+    private System.Windows.Controls.Primitives.Popup popProfiles = null!;
+    private DateTime _profilePopupClosedAt = DateTime.MinValue;
     private int _setRow;
     private bool _loading;
     private readonly Dictionary<string, Control[]> _fields = new();
@@ -36,21 +38,7 @@ public partial class MainWindow
         gSet.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         gSet.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        Group("gui.grp.preset");
-        tbPresetName = new TextBox { Width = 200 };
-        btnPresetSave = PresetButton("gui.preset.save", OnPresetSave);
-        btnPresetLoad = PresetButton("gui.preset.load", OnPresetLoad);
-        btnPresetDelete = PresetButton("gui.preset.delete", OnPresetDelete);
-        Row("gui.set.preset", HPanel(tbPresetName, btnPresetSave, btnPresetLoad, btnPresetDelete), "gui.tip.preset", "Preset");
-        lbPresets = new ListBox
-        {
-            Width = 340, Height = 84, Background = (Brush)FindResource("InputBrush"), Foreground = (Brush)FindResource("TextBrush"),
-            BorderBrush = (Brush)FindResource("LineBrush"), Margin = new Thickness(0, 0, 0, 2),
-        };
-        lbPresets.SelectionChanged += (_, _) => { if (lbPresets.SelectedItem is string n) tbPresetName.Text = n; };
-        lbPresets.MouseDoubleClick += (_, _) => OnPresetLoad(lbPresets, new RoutedEventArgs());
-        Row("", lbPresets, null);
-        RefreshPresets();
+        ProfileHeader();
 
         Group("gui.grp.basic");
         rbLangJa = Choice("日本語", "lang");
@@ -127,7 +115,69 @@ public partial class MainWindow
         btnTemplate.Click += OnTemplate;
     }
 
-    private Button PresetButton(string key, RoutedEventHandler onClick)
+    /// <summary>見出し（青文字）と同じ1行に、名前の入力欄（▼で一覧）・ボタン・ⓘを置く。</summary>
+    private void ProfileHeader()
+    {
+        gSet.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new TextBlock
+        {
+            Text = Loc.Get("gui.grp.profile"), FontWeight = FontWeights.SemiBold, Foreground = (Brush)FindResource("AccentHoverBrush"),
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0),
+        });
+
+        tbProfileName = new TextBox { Width = 200 };
+        var drop = new Button { Content = "▼", Padding = new Thickness(7, 3, 7, 3), Margin = new Thickness(2, 0, 0, 0), FontSize = 10 };
+        var combo = HPanel(tbProfileName, drop);
+        lbProfiles = new ListBox
+        {
+            MinWidth = 230, MaxHeight = 170, Background = (Brush)FindResource("InputBrush"), Foreground = (Brush)FindResource("TextBrush"),
+            BorderThickness = new Thickness(0),
+        };
+        popProfiles = new System.Windows.Controls.Primitives.Popup
+        {
+            PlacementTarget = tbProfileName, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom, StaysOpen = false,
+            Child = new Border { Background = (Brush)FindResource("InputBrush"), BorderBrush = (Brush)FindResource("LineBrush"), BorderThickness = new Thickness(1), Child = lbProfiles },
+        };
+        popProfiles.Closed += (_, _) => _profilePopupClosedAt = DateTime.UtcNow;
+        lbProfiles.SelectionChanged += (_, _) =>
+        {
+            if (lbProfiles.SelectedItem is not string n) return;
+            tbProfileName.Text = n;
+            popProfiles.IsOpen = false;
+            lbProfiles.SelectedItem = null;
+        };
+        drop.Click += (_, _) =>
+        {
+            if ((DateTime.UtcNow - _profilePopupClosedAt).TotalMilliseconds < 250) return; // ▼を押して閉じた直後の再オープンを防ぐ
+            RefreshProfiles();
+            if (lbProfiles.Items.Count == 0) { SetMsg(Loc.Get("gui.profile.empty"), Msg.Muted); return; }
+            popProfiles.IsOpen = true;
+        };
+        combo.Children.Add(popProfiles);
+        row.Children.Add(combo);
+
+        btnProfileSave = ProfileButton("gui.profile.save", OnProfileSave);
+        btnProfileLoad = ProfileButton("gui.profile.load", OnProfileLoad);
+        btnProfileDelete = ProfileButton("gui.profile.delete", OnProfileDelete);
+        row.Children.Add(btnProfileSave);
+        row.Children.Add(btnProfileLoad);
+        row.Children.Add(btnProfileDelete);
+        row.Children.Add(Info("gui.tip.profile", Array.Empty<object>()));
+        _fields["Profile"] = new Control[] { tbProfileName };
+
+        var b = new Border
+        {
+            BorderBrush = (Brush)FindResource("LineBrush"), BorderThickness = new Thickness(0, 0, 0, 1),
+            Margin = new Thickness(0, 0, 0, 4), Padding = new Thickness(0, 0, 0, 6), Child = row,
+        };
+        Grid.SetRow(b, _setRow++);
+        Grid.SetColumnSpan(b, 2);
+        gSet.Children.Add(b);
+        RefreshProfiles();
+    }
+
+    private Button ProfileButton(string key, RoutedEventHandler onClick)
     {
         var b = new Button { Content = Loc.Get(key), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
         b.Click += onClick;
@@ -140,7 +190,7 @@ public partial class MainWindow
         var b = new Border
         {
             BorderBrush = (Brush)FindResource("LineBrush"), BorderThickness = new Thickness(0, 0, 0, 1),
-            Margin = new Thickness(0, _setRow == 0 ? 0 : 16, 0, 4), Padding = new Thickness(0, 0, 0, 4),
+            Margin = new Thickness(0, _setRow == 0 ? 0 : 10, 0, 2), Padding = new Thickness(0, 0, 0, 4),
             Child = new TextBlock { Text = Loc.Get(key), FontWeight = FontWeights.SemiBold, Foreground = (Brush)FindResource("AccentHoverBrush") },
         };
         Grid.SetRow(b, _setRow++);
@@ -156,11 +206,11 @@ public partial class MainWindow
         var lbl = new TextBlock
         {
             Text = labelKey.Length > 0 ? Loc.Get(labelKey) : "", TextAlignment = TextAlignment.Right, TextWrapping = TextWrapping.Wrap,
-            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 4, 4, 4),
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 4, 2),
         };
         Grid.SetRow(lbl, r);
         gSet.Children.Add(lbl);
-        var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 3) };
+        var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
         sp.Children.Add(input);
         if (tipKey != null) sp.Children.Add(Info(tipKey, tipArgs));
         Grid.SetRow(sp, r);
