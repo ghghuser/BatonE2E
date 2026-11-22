@@ -56,7 +56,8 @@ Core（UI・OS非依存の純ロジック）とアプリ本体を分離。コー
 P0・P1・P2a・P2b完了。P3完了（CI緑）: 実アプリを起動し、curl(PUT/chunked)・ffmpeg(icecast)・生ソケット(SOURCE HTTP/1.0、SOURCE pw /m ICE/1.0、SOURCE /m ICE/1.0)・TLS1.2(指紋固定+SAN確認)で送信 → Node WebSocket受信側が復号 → 元MP3とバイト一致。Chromiumで視聴ページ実再生（currentTime進行、誤パスワード表示、題名にアプリ名なし）。
 - 実機で判明: oddcastは `SOURCE /stream ICE/1.0`（3語・Basic認証）を送る → P2b後に対応済み（実機再確認待ち）。oddcastのServer IP欄はIPのみ（ポートは別欄）。
 - 実機確認: oddcast（ICE/1.0）接続・視聴・自己検査OK。コンソール版は「停止」操作が弱い（Ctrl+C相当）→GUIに停止/開始ボタンを設ける。
-- 次: P3.5 WPF GUI（ダークテーマ、言語設定、設定バックアップ、かがみんv2風の直接操作）。
+- P3.5 実装済み・CI緑（実機確認待ち）: src/BatonE2E.Gui（WPF、exe名BatonE2E）。配信/ログ/設定の3画面、開始停止、ダークテーマ、日英(Lang/ja.ini,en.ini)、config.json＋backup/（直近10件）。ログはGUI内保持（既定でファイル出力なし）。コンソール版は src/BatonE2E（AssemblyName=BatonE2E.Console、CI結合試験用・成果物には含めない）。
+- 次: 実機確認の結果を反映 → P4（README・Releases・config整備）。視聴URLのパス自由設定は未対応（バックログ）。
 
 ## 作業メモ（中断・再開用。着手前に1行書き、完了で消す）
 - （現在なし）
