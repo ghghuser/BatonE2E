@@ -26,6 +26,8 @@ jobs:
           --ini "$PWD/src/BatonE2E/Lang/ja.ini" --emit-vectors "$RUNNER_TEMP/vectors.json"
       - name: 暗号の相互運用テスト（C#で暗号化 → Node.js WebCryptoで復号）
         run: node src/BatonE2E.Tests/interop/verify.mjs "$RUNNER_TEMP/vectors.json"
+      - name: GUI（WPF）のコンパイル確認
+        run: dotnet build src/BatonE2E.Gui/BatonE2E.Gui.csproj -c Release
       - name: 失敗時の説明
         if: failure()
         run: echo "::error::テストが失敗。『自己テスト』の段で落ちたならログの『NG』行がCore/暗号の不具合。『相互運用テスト』の段で落ちたなら、C#とブラウザ(WebCrypto)で鍵導出・nonce・AADのどれかが食い違っている。"
@@ -61,7 +63,7 @@ jobs:
           ls -l "$RUNNER_TEMP/work/test.mp3"
       - name: アプリ起動
         run: |
-          nohup dotnet "$RUNNER_TEMP/app/BatonE2E.dll" --source-port $SRC_PORT --view-port $VIEW_PORT \
+          nohup dotnet "$RUNNER_TEMP/app/BatonE2E.Console.dll" --source-port $SRC_PORT --view-port $VIEW_PORT \
             --source-password "$SRC_PASS" --password "$VIEW_PASS" --title "テスト配信" \
             --cert-dir "$RUNNER_TEMP/work/cert" > "$RUNNER_TEMP/work/app.log" 2>&1 &
           for i in $(seq 1 60); do curl -fs "http://127.0.0.1:$VIEW_PORT/" >/dev/null && exit 0; sleep 0.5; done
@@ -112,7 +114,7 @@ jobs:
       - name: 発行（単体exe）
         shell: bash
         run: |
-          dotnet publish src/BatonE2E/BatonE2E.csproj -c Release -r win-x64 --self-contained \
+          dotnet publish src/BatonE2E.Gui/BatonE2E.Gui.csproj -c Release -r win-x64 --self-contained \
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
             -p:BuildNumber=${{ github.run_number }} -o out/BatonE2E
           cp LICENSE out/BatonE2E/LICENSE.txt

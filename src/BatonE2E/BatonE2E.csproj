@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>BatonE2E</AssemblyName>
+    <AssemblyName>BatonE2E.Console</AssemblyName>
     <RootNamespace>BatonE2E</RootNamespace>
     <!-- win-x64・単体exe化は発行コマンド側で指定（Linux CIでも dotnet build/run できるようにするため） -->
   </PropertyGroup>

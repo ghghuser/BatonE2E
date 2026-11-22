@@ -19,6 +19,19 @@ internal static class CoreTests
         }
         else T.Check("ja.ini: ファイルが見つかる", false);
 
+        // en.ini は ja.ini と同じキー・同じ書式引数（{0}等）を持つこと
+        var en = Path.Combine(Path.GetDirectoryName(iniPath) ?? ".", "en.ini");
+        if (File.Exists(iniPath) && File.Exists(en))
+        {
+            var ja = Loc.Parse(File.ReadAllText(iniPath));
+            var e = Loc.Parse(File.ReadAllText(en));
+            T.Check("en.ini: キーがja.iniと一致", ja.Keys.OrderBy(k => k).SequenceEqual(e.Keys.OrderBy(k => k)));
+            static string Ph(string s) => string.Concat(System.Text.RegularExpressions.Regex.Matches(s, @"\{\d\}").Select(m => m.Value).Distinct().OrderBy(x => x));
+            var bad = ja.Where(kv => e.TryGetValue(kv.Key, out var v) && Ph(v) != Ph(kv.Value)).Select(kv => kv.Key).ToList();
+            T.Check("en.ini: 書式引数がja.iniと一致" + (bad.Count > 0 ? "（" + string.Join(",", bad) + "）" : ""), bad.Count == 0);
+        }
+        else T.Check("en.ini: ファイルが見つかる", false);
+
         T.Check("AppInfo: 版数形式", Version.TryParse(AppInfo.Version, out var v) && v!.Major == 1);
     }
 }

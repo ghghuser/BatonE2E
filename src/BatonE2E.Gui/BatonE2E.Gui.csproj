@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>BatonE2E</AssemblyName>
+    <RootNamespace>BatonE2E.Gui</RootNamespace>
+    <!-- Linuxの確認用ビルドでも通るようにする（発行はWindowsで行う） -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\assets\BatonE2E.ico')">
+    <ApplicationIcon>$(MSBuildThisFileDirectory)..\..\assets\BatonE2E.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BatonE2E.Core\BatonE2E.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 文言ファイルはコンソール版と共通（src/BatonE2E/Lang）。exeの横に置き、テキストエディタで修正可能 -->
+    <Content Include="..\BatonE2E\Lang\*.ini" Link="Lang\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
