@@ -7,6 +7,7 @@ using System.Windows.Media;
 using BatonE2E.Core;
 using BatonE2E.Core.Config;
 using BatonE2E.Core.Engine;
+using BatonE2E.Core.Logging;
 using BatonE2E.Core.Security;
 
 namespace BatonE2E.Gui;
