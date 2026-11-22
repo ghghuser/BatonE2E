@@ -71,6 +71,7 @@ public partial class MainWindow : Window
         lblLang.Text = Loc.Get("gui.set.language");
         lblSrcPort.Text = Loc.Get("gui.set.srcport");
         lblViewPort.Text = Loc.Get("gui.set.viewport");
+        lblViewPath.Text = Loc.Get("gui.set.viewpath");
         lblMount.Text = Loc.Get("gui.set.mount");
         lblSrcPass.Text = Loc.Get("gui.set.srcpass");
         lblViewPass.Text = Loc.Get("gui.set.viewpass");
@@ -115,6 +116,7 @@ public partial class MainWindow : Window
         _logTimer.Start();
 
         LoadUi(_set);
+        RestoreUiState();
         ShowStoppedValues();
         UpdateStats();
         tbLogCount.Text = Loc.Get("gui.log.lines", 0);
@@ -150,7 +152,78 @@ public partial class MainWindow : Window
             _engine = null;
             try { Task.Run(async () => await eng.DisposeAsync()).Wait(5000); } catch { /* 終了時の失敗は無視 */ }
         }
+        SaveUiState();
         base.OnClosing(e);
+    }
+
+    // ---------- ウィンドウ位置・大きさの保存と復元（window.json） ----------
+
+    private sealed class UiState
+    {
+        public double Left { get; set; }
+        public double Top { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+        public bool Maximized { get; set; }
+        public bool LogOpen { get; set; } = true;
+        public double LogWidth { get; set; } = 400;
+    }
+
+    private static string UiStatePath => Path.Combine(AppContext.BaseDirectory, "window.json");
+
+    private void RestoreUiState()
+    {
+        try
+        {
+            if (!File.Exists(UiStatePath)) return;
+            var u = System.Text.Json.JsonSerializer.Deserialize<UiState>(File.ReadAllText(UiStatePath));
+            if (u == null) return;
+            _logWidth = Math.Clamp(u.LogWidth, 220, 2000);
+            if (u.Width >= MinWidth && u.Height >= MinHeight && u.Width < 20000 && u.Height < 20000)
+            {
+                // 画面（複数モニター含む）から外れていたら位置は復元しない
+                var vl = SystemParameters.VirtualScreenLeft;
+                var vt = SystemParameters.VirtualScreenTop;
+                var vr = vl + SystemParameters.VirtualScreenWidth;
+                var vb = vt + SystemParameters.VirtualScreenHeight;
+                var visible = u.Left + 100 < vr && u.Left + u.Width - 100 > vl && u.Top < vb - 50 && u.Top + 50 > vt;
+                Width = Math.Min(u.Width, SystemParameters.VirtualScreenWidth);
+                Height = Math.Min(u.Height, SystemParameters.VirtualScreenHeight);
+                if (visible)
+                {
+                    WindowStartupLocation = WindowStartupLocation.Manual;
+                    Left = u.Left;
+                    Top = u.Top;
+                }
+            }
+            if (u.Maximized) WindowState = WindowState.Maximized;
+            tglLog.IsChecked = u.LogOpen;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            /* 復元できなくても既定の大きさで起動 */
+        }
+    }
+
+    private void SaveUiState()
+    {
+        try
+        {
+            var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+            if (tglLog.IsChecked == true && colLog.ActualWidth > 220) _logWidth = colLog.ActualWidth;
+            var u = new UiState
+            {
+                Left = b.Left, Top = b.Top, Width = b.Width, Height = b.Height,
+                Maximized = WindowState == WindowState.Maximized,
+                LogOpen = tglLog.IsChecked == true,
+                LogWidth = _logWidth,
+            };
+            File.WriteAllText(UiStatePath, System.Text.Json.JsonSerializer.Serialize(u));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            /* 保存できなくても終了は続行 */
+        }
     }
 
     // ---------- 共通部品 ----------
@@ -249,7 +322,7 @@ public partial class MainWindow : Window
         _vSrvPass.Text = o.SourcePassword;
         _vSrvTls.Text = Loc.Get(o.SourceTls switch { SourceTlsMode.Off => "gui.tls.off", SourceTlsMode.On => "gui.tls.on", _ => "gui.tls.auto" });
         _vSrvFp.Text = eng.SourceCertFingerprintColon ?? "—";
-        _vViewUrl.Text = $"http://127.0.0.1:{o.ViewPort}/";
+        _vViewUrl.Text = $"http://127.0.0.1:{o.ViewPort}{o.ViewPath}";
         _vViewPass.Text = o.ViewPassword;
         tbRegen.Text = eng.SourceCertRegenerated ? Loc.Get("gui.hint.regen") : "";
         tbHint.Text = "";
@@ -363,6 +436,7 @@ public partial class MainWindow : Window
         rbLangEn.IsChecked = s.Language == "en";
         tbSrcPort.Text = s.SourcePort.ToString();
         tbViewPort.Text = s.ViewPort.ToString();
+        tbViewPath.Text = s.ViewPath;
         tbMount.Text = s.Mount;
         tbSrcPass.Text = s.SourcePassword;
         tbViewPass.Text = s.ViewPassword;
@@ -384,6 +458,7 @@ public partial class MainWindow : Window
             Language = rbLangEn.IsChecked == true ? "en" : "ja",
             SourcePort = ParseInt(tbSrcPort.Text),
             ViewPort = ParseInt(tbViewPort.Text),
+            ViewPath = tbViewPath.Text,
             Mount = tbMount.Text,
             SourcePassword = tbSrcPass.Text,
             ViewPassword = tbViewPass.Text,

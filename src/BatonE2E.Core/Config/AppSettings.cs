@@ -11,6 +11,8 @@ public sealed class AppSettings
     public string Language { get; set; } = "ja";
     public int SourcePort { get; set; } = 8000;
     public int ViewPort { get; set; } = 8080;
+    /// <summary>視聴ページのURLパス（例: /live-abc）。</summary>
+    public string ViewPath { get; set; } = "/";
     public string Mount { get; set; } = "/stream";
     /// <summary>空なら起動ごとに自動生成。</summary>
     public string SourcePassword { get; set; } = "";
@@ -50,6 +52,7 @@ public sealed class AppSettings
         if (m[0] != '/') m = "/" + m;
         if (m.Any(c => c <= ' ' || c == '?' || c == '#')) m = "/stream";
         Mount = m;
+        ViewPath = EngineOptions.NormalizeViewPath(ViewPath);
         MaxViewers = Math.Clamp(MaxViewers, 1, 1000);
         var t = (SourceTls ?? "").ToLowerInvariant();
         SourceTls = t is "auto" or "off" or "on" ? t : "auto";
@@ -144,6 +147,7 @@ public sealed class AppSettings
             SourcePort = SourcePort,
             ViewPort = ViewPort,
             Mount = Mount,
+            ViewPath = ViewPath,
             MaxViewers = MaxViewers,
             PageTitle = PageTitle,
             AcceptAnySourceUser = AcceptAnySourceUser,

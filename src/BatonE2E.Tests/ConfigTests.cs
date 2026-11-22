@@ -1,6 +1,7 @@
 using System.Text;
 using BatonE2E.Core.Config;
 using BatonE2E.Core.Crypto;
+using BatonE2E.Core.Engine;
 
 namespace BatonE2E.Tests;
 
@@ -51,6 +52,10 @@ internal static class ConfigTests
             var jhdr = StreamHeader.Parse(jenc.Header.ToJson())!;
             using var jdec = FrameDecryptor.Create(nfd, jhdr);
             T.Check("パスワード: 日本語（NFC/NFD違い）でも確認ブロックを検証できる", nfc != nfd && jdec.VerifyConfirmation(jenc.ConfirmationFrame()));
+            T.Check("視聴パス: 正規化", EngineOptions.NormalizeViewPath("") == "/" && EngineOptions.NormalizeViewPath("live") == "/live"
+                && EngineOptions.NormalizeViewPath("/a/b/") == "/a/b" && EngineOptions.NormalizeViewPath("/a b") == "/"
+                && EngineOptions.NormalizeViewPath("/a/../b") == "/" && EngineOptions.NormalizeViewPath("/a?x") == "/" && EngineOptions.NormalizeViewPath("/日本") == "/"
+                && EngineOptions.NormalizeViewPath("//") == "/" && EngineOptions.NormalizeViewPath("/a//b") == "/");
             T.Check("設定: 受け口と視聴のポート重複を検出", new AppSettings { SourcePort = 8000, ViewPort = 8000 }.Check() != null);
         }
         finally { try { Directory.Delete(dir, true); } catch (IOException) { } }

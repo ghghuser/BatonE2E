@@ -168,7 +168,7 @@ function fail(e){
 }
 function connect(){
   clearTimeout(retryTimer);setErr("");setStatus(T.connecting);
-  const u=(location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws";
+  const u=(location.protocol==="https:"?"wss://":"ws://")+location.host+(location.pathname.endsWith("/")?location.pathname:location.pathname+"/")+"ws";
   ws=new WebSocket(u);ws.binaryType="arraybuffer";
   ws.onmessage=ev=>{chain=chain.then(()=>onMsg(ev.data)).catch(fail);};
   ws.onclose=()=>{if(stopped)return;

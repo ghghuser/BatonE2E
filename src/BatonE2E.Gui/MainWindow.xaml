@@ -99,6 +99,8 @@
             <TextBox x:Name="tbSrcPort" Width="120" HorizontalAlignment="Left" Margin="0,0,0,10"/>
             <TextBlock x:Name="lblViewPort" Margin="0,0,0,4"/>
             <TextBox x:Name="tbViewPort" Width="120" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+            <TextBlock x:Name="lblViewPath" Margin="0,0,0,4"/>
+            <TextBox x:Name="tbViewPath" Margin="0,0,0,10"/>
             <TextBlock x:Name="lblMount" Margin="0,0,0,4"/>
             <TextBox x:Name="tbMount" Margin="0,0,0,10"/>
 

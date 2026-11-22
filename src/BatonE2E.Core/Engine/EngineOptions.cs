@@ -20,6 +20,8 @@ public sealed class EngineOptions
     public string PageTitle { get; set; } = "ライブ配信";
     public string ViewBind { get; set; } = "127.0.0.1";
     public int ViewPort { get; set; } = 8080;
+    /// <summary>視聴ページのURLパス（例: /live-abc）。既定は "/"。WebSocketは「パス/ws」。他のパスは404。</summary>
+    public string ViewPath { get; set; } = "/";
     /// <summary>127.0.0.1以外での視聴待ち受けを許可（TLS使用時のみ有効化する想定）。</summary>
     public bool AllowExternalBind { get; set; }
     public string Mount { get; set; } = "/stream";
@@ -32,10 +34,26 @@ public sealed class EngineOptions
     /// <summary>視聴ページの差し替えファイル。未指定なら exeと同じ場所の viewer.html、なければ埋め込み。</summary>
     public string? ViewerPageFile { get; set; }
 
+    /// <summary>視聴URLのパスを正規化。使える文字は英数字と - _ . ~ / のみ。不正なら "/"。</summary>
+    public static string NormalizeViewPath(string? path)
+    {
+        var p = (path ?? "").Trim();
+        if (p.Length == 0) return "/";
+        if (p[0] != '/') p = "/" + p;
+        p = p.TrimEnd('/');
+        if (p.Length == 0) return "/";
+        foreach (var c in p)
+            if (!(c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '-' or '_' or '.' or '~' or '/')) return "/";
+        var segs = p[1..].Split('/');
+        if (segs.Any(s => s.Length == 0 || s == "." || s == "..")) return "/";
+        return p;
+    }
+
     public void Validate()
     {
         if (string.IsNullOrEmpty(SourcePassword)) throw new E2eCryptoException("empty-source-password");
         if (string.IsNullOrEmpty(ViewPassword)) throw new E2eCryptoException("empty-view-password");
+        ViewPath = NormalizeViewPath(ViewPath);
         if (string.IsNullOrWhiteSpace(PageTitle)) PageTitle = "ライブ配信";
         ChunkSize = Math.Clamp(ChunkSize, 1024, 262_144);
         MaxViewers = Math.Clamp(MaxViewers, 1, 1000);

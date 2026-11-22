@@ -9,3 +9,6 @@ config.json
 *.cer
 node_modules/
 package-lock.json
+window.json
+config.json
+backup/

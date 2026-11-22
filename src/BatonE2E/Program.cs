@@ -44,6 +44,7 @@ internal static class Program
         {
             SourcePort = int.Parse(Opt(args, "--source-port", "BATONE2E_SOURCE_PORT") ?? "8000"),
             ViewPort = int.Parse(Opt(args, "--view-port", "BATONE2E_VIEW_PORT") ?? "8080"),
+            ViewPath = Opt(args, "--view-path", "BATONE2E_VIEW_PATH") ?? "/",
             Mount = Opt(args, "--mount", "BATONE2E_MOUNT") ?? "/stream",
             MaxViewers = int.Parse(Opt(args, "--max-viewers", "BATONE2E_MAX_VIEWERS") ?? "20"),
             SourcePassword = Opt(args, "--source-password", "BATONE2E_SOURCE_PASSWORD") ?? PassphraseGenerator.Generate(4, 4),
@@ -81,7 +82,7 @@ internal static class Program
         }
         if (o.AcceptAnySourceUser) Console.WriteLine(Loc.Get("console.warn.anyuser"));
         Console.WriteLine(Loc.Get("console.view.title"));
-        Console.WriteLine("  " + Loc.Get("console.view.url", $"http://127.0.0.1:{o.ViewPort}/"));
+        Console.WriteLine("  " + Loc.Get("console.view.url", $"http://127.0.0.1:{o.ViewPort}{(EngineOptions.NormalizeViewPath(o.ViewPath) == "/" ? "/" : EngineOptions.NormalizeViewPath(o.ViewPath))}"));
         Console.WriteLine("  " + Loc.Get("console.view.tunnel"));
         Console.WriteLine("  " + Loc.Get("console.view.passphrase", o.ViewPassword));
         Console.WriteLine(Loc.Get("console.warn.random"));

@@ -6,7 +6,7 @@ name="$1"; here="$(cd "$(dirname "$0")" && pwd)"
 out="$WORK/$name.bin"; log="$WORK/$name.recv.log"
 rm -f "$out" "$log"
 
-node "$here/receive.mjs" "ws://127.0.0.1:$VIEW_PORT/ws" "$VIEW_PASS" "$out" 3000 60000 >"$log" 2>&1 &
+node "$here/receive.mjs" "ws://127.0.0.1:$VIEW_PORT/live-abc/ws" "$VIEW_PASS" "$out" 3000 60000 >"$log" 2>&1 &
 rpid=$!
 for _ in $(seq 1 100); do grep -q READY "$log" 2>/dev/null && break; sleep 0.2; done
 grep -q READY "$log" || { echo "::error::[$name] 視聴者側で確認ブロックの検証に失敗"; cat "$log"; exit 1; }

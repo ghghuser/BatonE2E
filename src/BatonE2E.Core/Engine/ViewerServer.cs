@@ -41,8 +41,11 @@ internal sealed class ViewerServer : IAsyncDisposable
         var app = b.Build();
         var me = new ViewerServer(app, o, hub);
         app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20) });
-        app.MapGet("/", me.ServePageAsync);
-        app.MapGet("/ws", me.HandleSocketAsync);
+        var vp = EngineOptions.NormalizeViewPath(o.ViewPath);
+        var basePath = vp == "/" ? "/" : vp + "/";
+        app.MapGet(vp, me.ServePageAsync);
+        if (vp != "/") app.MapGet(basePath, me.ServePageAsync);
+        app.MapGet(basePath + "ws", me.HandleSocketAsync);
         await app.StartAsync();
         AppLog.Info(Loc.Get("log.view.listen", o.ViewBind, o.ViewPort));
         return me;

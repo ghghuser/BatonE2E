@@ -64,15 +64,19 @@ jobs:
       - name: アプリ起動
         run: |
           nohup dotnet "$RUNNER_TEMP/app/BatonE2E.Console.dll" --source-port $SRC_PORT --view-port $VIEW_PORT \
-            --source-password "$SRC_PASS" --password "$VIEW_PASS" --title "テスト配信" \
+            --source-password "$SRC_PASS" --password "$VIEW_PASS" --title "テスト配信" --view-path /live-abc \
             --cert-dir "$RUNNER_TEMP/work/cert" > "$RUNNER_TEMP/work/app.log" 2>&1 &
-          for i in $(seq 1 60); do curl -fs "http://127.0.0.1:$VIEW_PORT/" >/dev/null && exit 0; sleep 0.5; done
+          for i in $(seq 1 60); do curl -fs "http://127.0.0.1:$VIEW_PORT/live-abc" >/dev/null && exit 0; sleep 0.5; done
           echo "::error::アプリが起動しない"; cat "$RUNNER_TEMP/work/app.log"; exit 1
       - name: 'シナリオ（送信→受信→復号→元MP3とバイト一致）'
         env:
           WORK: ${{ runner.temp }}/work
           CERT_DIR: ${{ runner.temp }}/work/cert
         run: |
+          # 視聴URLのパス: 設定したパスだけが開き、他のパスは404
+          [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$VIEW_PORT/)" = 404 ] || { echo "::error::設定外のパス(/)が404でない"; exit 1; }
+          [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$VIEW_PORT/ws)" = 404 ] || { echo "::error::設定外のパス(/ws)が404でない"; exit 1; }
+          [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$VIEW_PORT/live-abc/)" = 200 ] || { echo "::error::/live-abc/ が開けない"; exit 1; }
           export TEST_MP3="$WORK/test.mp3"
           S=src/BatonE2E.Tests/integration/scenario.sh
           fail=0
@@ -90,7 +94,7 @@ jobs:
           fpid=$!; sleep 2
           cp "$GITHUB_WORKSPACE/src/BatonE2E.Tests/integration/browser.mjs" .
           node browser.mjs \
-            "http://127.0.0.1:$VIEW_PORT/" "$VIEW_PASS" "テスト配信"; rc=$?
+            "http://127.0.0.1:$VIEW_PORT/live-abc" "$VIEW_PASS" "テスト配信"; rc=$?
           kill $fpid 2>/dev/null || true; exit $rc
       - name: アプリのログ表示
         if: always()
