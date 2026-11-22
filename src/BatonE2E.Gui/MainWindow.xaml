@@ -145,8 +145,9 @@
         </Border>
       </ScrollViewer>
       </Grid>
+      </Border>
       <!-- ログ画面 -->
-      <Grid x:Name="pLog" Grid.Column="2">
+      <Grid x:Name="pLog" Grid.Column="1" Margin="10,0,0,0">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="*"/>
