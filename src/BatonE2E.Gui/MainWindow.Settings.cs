@@ -22,7 +22,9 @@ public partial class MainWindow
         tbRateBan = null!, tbDeny = null!;
     private RadioButton rbLangJa = null!, rbLangEn = null!, rbTlsAuto = null!, rbTlsOn = null!, rbTlsOff = null!;
     private CheckBox chkAnyUser = null!, chkProxy = null!, chkLogFile = null!;
-    private Button btnGenSrc = null!, btnGenView = null!;
+    private Button btnGenSrc = null!, btnGenView = null!, btnPresetLoad = null!, btnPresetSave = null!, btnPresetDelete = null!;
+    private TextBox tbPresetName = null!;
+    private ListBox lbPresets = null!;
     private int _setRow;
     private bool _loading;
     private readonly Dictionary<string, Control[]> _fields = new();
@@ -33,6 +35,22 @@ public partial class MainWindow
     {
         gSet.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         gSet.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        Group("gui.grp.preset");
+        tbPresetName = new TextBox { Width = 200 };
+        btnPresetSave = PresetButton("gui.preset.save", OnPresetSave);
+        btnPresetLoad = PresetButton("gui.preset.load", OnPresetLoad);
+        btnPresetDelete = PresetButton("gui.preset.delete", OnPresetDelete);
+        Row("gui.set.preset", HPanel(tbPresetName, btnPresetSave, btnPresetLoad, btnPresetDelete), "gui.tip.preset", "Preset");
+        lbPresets = new ListBox
+        {
+            Width = 340, Height = 84, Background = (Brush)FindResource("InputBrush"), Foreground = (Brush)FindResource("TextBrush"),
+            BorderBrush = (Brush)FindResource("LineBrush"), Margin = new Thickness(0, 0, 0, 2),
+        };
+        lbPresets.SelectionChanged += (_, _) => { if (lbPresets.SelectedItem is string n) tbPresetName.Text = n; };
+        lbPresets.MouseDoubleClick += (_, _) => OnPresetLoad(lbPresets, new RoutedEventArgs());
+        Row("", lbPresets, null);
+        RefreshPresets();
 
         Group("gui.grp.basic");
         rbLangJa = Choice("日本語", "lang");
@@ -105,6 +123,13 @@ public partial class MainWindow
         btnSave.Click += OnSave;
         btnRestore.Click += OnRestore;
         btnTemplate.Click += OnTemplate;
+    }
+
+    private Button PresetButton(string key, RoutedEventHandler onClick)
+    {
+        var b = new Button { Content = Loc.Get(key), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
+        b.Click += onClick;
+        return b;
     }
 
     private void Group(string key)

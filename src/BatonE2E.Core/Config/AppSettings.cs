@@ -138,6 +138,18 @@ public sealed class AppSettings
         }
     }
 
+    /// <summary>読み込むだけ（ファイルは触らない）。無い・壊れていれば null。</summary>
+    public static AppSettings? TryRead(string path)
+    {
+        try
+        {
+            var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), Json);
+            s?.Normalize();
+            return s;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException) { return null; }
+    }
+
     public string ToJson() => JsonSerializer.Serialize(this, Json);
 
     /// <summary>保存。既存ファイルと内容が違うときは backup フォルダへ複製（直近 BackupKeep 件）。原子的に書き込み。</summary>

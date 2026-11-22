@@ -7,6 +7,7 @@ string? Opt(string name) { var i = Array.IndexOf(args, name); return i >= 0 && i
 var ini = Opt("--ini") ?? Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "BatonE2E", "Lang", "ja.ini");
 CoreTests.Run(ini);
 ConfigTests.Run();
+PresetTests.Run();
 CryptoTests.Run();
 await IntegrationTests.RunAsync();
 await TlsTests.RunAsync();
