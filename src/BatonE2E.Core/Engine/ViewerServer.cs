@@ -44,7 +44,7 @@ internal sealed class ViewerServer : IAsyncDisposable
         var vp = EngineOptions.NormalizeViewPath(o.ViewPath);
         var basePath = vp == "/" ? "/" : vp + "/";
         app.MapGet(vp, me.ServePageAsync);
-        if (vp != "/") app.MapGet(basePath, me.ServePageAsync);
+        // 末尾の「/」あり・なしは同じ経路として扱われる（両方登録すると曖昧一致エラーになる）
         app.MapGet(basePath + "ws", me.HandleSocketAsync);
         await app.StartAsync();
         AppLog.Info(Loc.Get("log.view.listen", o.ViewBind, o.ViewPort));
