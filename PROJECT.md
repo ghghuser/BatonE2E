@@ -30,8 +30,8 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 
 ## 5. リポジトリ構成
 - `.github/workflows/ci.yml`: ジョブ test(ubuntu: 自己テスト＋Node相互運用＋GUIのコンパイル確認) → integration(ubuntu: 実アプリ結合＋Chromium) → build(windows: GUIをpublish、成果物登録、古い成果物削除) → release(tagのみ)。`build.yml`はSonar（windows、`dotnet build src/BatonE2E.sln`）。docs/・*.md・*.txtだけの変更ではビルドしない。
-- `src/BatonE2E.Core`: Crypto/（CryptoConstants, StreamHeader, KeyDerivation, FrameEncryptor, FrameDecryptor, FrameFormat）、Engine/（RelayEngine, EngineOptions, EngineStats, StreamHub, ViewerConnection, SourceListener, SourceRequest, BodyReaders, BufferedSource, ViewerServer, AccessControl, ViewerTemplate）、Config/AppSettings.cs、Security/（PassphraseGenerator, SourceCertificate）、Logging/AppLog.cs、Loc.cs、AppInfo.cs、Web/viewer.html（埋め込み）。
-- `src/BatonE2E.Gui`: WPF。exe名は `BatonE2E`。App.xaml(.cs)、MainWindow.xaml、MainWindow.xaml.cs（中継画面・ログ・ウィンドウ状態）、MainWindow.Settings.cs（設定画面）。Langは `../BatonE2E/Lang/*.ini` を共有してexeの横へ出力。
+- `src/BatonE2E.Core`: Crypto/（CryptoConstants, StreamHeader, KeyDerivation, FrameEncryptor, FrameDecryptor, FrameFormat）、Engine/（RelayEngine, EngineOptions, EngineStats, StreamHub, ViewerConnection, SourceListener, SourceRequest, BodyReaders, BufferedSource, ViewerServer, AccessControl, ViewerTemplate）、Config/（AppSettings.cs、PresetStore.cs）、Security/（PassphraseGenerator, SourceCertificate）、Logging/AppLog.cs、Loc.cs、AppInfo.cs、Web/viewer.html（埋め込み）。
+- `src/BatonE2E.Gui`: WPF。exe名は `BatonE2E`。App.xaml(.cs)、MainWindow.xaml、MainWindow.xaml.cs（中継画面・ログ・ウィンドウ状態）、MainWindow.Settings.cs（設定画面）、MainWindow.Presets.cs（プリセット操作）、MainWindow.Tray.cs（タスクトレイ）。Langは `../BatonE2E/Lang/*.ini` を共有してexeの横へ出力。
 - `src/BatonE2E`: コンソール版（AssemblyName=`BatonE2E.Console`）。CIの結合試験専用で、成果物には含めない。CLI引数は第9章。
 - `src/BatonE2E.Tests`: 自己テスト（外部ライブラリなし。T.Check）。`integration/`にreceive.mjs（復号受信）、send-raw.mjs（生ソケット送信）、scenario.sh、browser.mjs（Playwright）。`interop/verify.mjs`はC#→Node WebCryptoの相互運用。
 - `docs/BatonE2E.txt`: 依頼書の全文（仕様の元）。`assets/`: アイコン置き場（`BatonE2E.ico`を置けばcsprojが拾う。未作成）。
@@ -44,8 +44,9 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 | P2a/P2b | source受け口＋WebSocket＋視聴ページ／sourceのTLS | 完了・実機OK |
 | P3 | 結合テスト（ffmpeg/curl/生ソケット/TLS→復号→バイト一致）＋Chromium再生 | 完了（CI緑） |
 | P3.5 | WPF GUI | 実装・主要部は実機OK。最新分は実機確認待ち（第8章） |
-| 追加(要望) | ①アクセス制御 | 実装・CI緑・実機確認待ち |
-| 追加(要望) | ②プリセット登録・タスクトレイ → ③通知音・帯域グラフ → ④ミラー | **次に着手（②から）** |
+| 追加(要望) | ①アクセス制御 | 完了・実機OK |
+| 追加(要望) | ②プリセット登録・タスクトレイ | 実装・CI緑・実機確認待ち（第8章） |
+| 追加(要望) | ③通知音・帯域グラフ → ④ミラー | **次に着手（③から）** |
 | P4 | README(日本語)・config整備・Releases | 未（READMEは古い。書き直し必須） |
 | P5 | 復号ヘルパー（`--listen`／`e2e-listener.exe`） | 未 |
 | P5.5 | 入力アダプタ（Shoutcast v1/v2、pull中継、stdin、外部コマンド、ffmpegトランスコード、曲名転送） | 未（現状はIcecast式のみ） |
@@ -68,10 +69,12 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 - アクセス制御(AccessControl): 全リクエストの入口で、拒否リスト(`ip:`単独/CIDR、`ua:`/`host:`は正規表現=NonBacktracking+50msタイムアウト、先読み不可、200字まで) → 連打制限(N秒にM回以上→K秒拒否、HTTP 429+Retry-After、拒否時に接続中の視聴者も切断) → WebSocketでは1人(IP)あたり同時接続数(429)。既定: 3接続/人、10秒に30回で60秒拒否。接続元は、TCP接続元がループバックの時だけ`X-Forwarded-For`の**最も右**を採用（`UseProxyHeader`、既定オン。Tailscale Funnel/ngrok対策）。ログは同一IPにつき60秒間引く。
 - 視聴ページ(viewer.html): 単一HTML。WebCrypto、MSE/ManagedMediaSource、mode='sequence'、同期位置まで読み捨て、バッファ削除、自動再接続、改ざん/連番エラーで停止、**停止ボタン**（停止→再生で再生側を作り直して最新から再開）。パスワードが違えば「パスワードが違います」。`{{TITLE}}`で題名（アプリ名は出さない）。
 ### 設定（Core/Config/AppSettings → config.json、exeの横）
-項目: Language(ja/en), SourcePort, SourceBind, ViewPort, ViewPath, Mount, SourcePassword(空=起動ごと自動生成), ViewPassword(同), PageTitle, MaxViewers, SourceTls(auto/off/on), AcceptAnySourceUser, LogToFile, MaxConnPerClient, RateWindowSec, RateMaxRequests, RateBanSec, DenyRules(改行区切り), UseProxyHeader。
+項目: Language(ja/en), SourcePort, SourceBind, ViewPort, ViewPath, Mount, SourcePassword(空=起動ごと自動生成), ViewPassword(同), PageTitle, MaxViewers, SourceTls(auto/off/on), AcceptAnySourceUser, LogToFile, MinimizeToTray(既定オン), MaxConnPerClient, RateWindowSec, RateMaxRequests, RateBanSec, DenyRules(改行区切り), UseProxyHeader。
 - 視聴パスフレーズ: 8文字未満は保存・開始を拒否、12文字未満は警告。ポート重複・範囲外・拒否リストの誤りも保存不可（Issue{Key,Field,Args}）。値は`Normalize()`で安全な範囲へ補正。
 - 保存は一時ファイル→置換。内容が変わるたびに`backup/config-*.json`へ複製（直近10件）。壊れた設定は`config.json.broken-*`へ退避して既定値で起動。
 - `SecurityWarnings()`: TLSなし／ユーザー名不問／視聴12文字未満／source8文字未満／外部待ち受け／接続数制限なし／連打制限なし／トンネルIP不使用。GUIは「新しく加わる弱い設定」を保存前に確認ダイアログで警告し、保存済みの弱い設定は中継画面に常時警告、中継開始時にログへも出す。
+- プリセット: 設定画面の最上部。名前（40字まで・ファイル名に使えない文字や予約名は不可）で`presets/<名前>.json`に保存。「この名前で保存」（現在の入力欄を保存。同名は確認して上書き）／「読込」（入力欄へ反映するだけ。「保存」で確定するため、弱い設定への警告は従来どおり出る）／「削除」（確認あり）。一覧のダブルクリックで読込。言語・ログのファイル出力・トレイ格納は全体の設定なのでプリセットでは切り替えない。パスワードを入力していれば平文で保存される（config.jsonと同じ。説明をⓘに明記）。
+- タスクトレイ: 常にアイコン表示（灰=停止中／黄=入力待ち／緑=入力あり、ツールチップに状態と視聴者数）。`MinimizeToTray`オンなら最小化でタスクバーから消えてトレイのみ。ダブルクリックで復帰（最大化も復元）、右クリックで 開く／開始・停止／終了。トレイからの開始失敗は吹き出しでも通知。「×」の動作は従来どおり（中継中は確認）。NotifyIcon使用のためGUIのcsprojは`UseWindowsForms`＋暗黙usingの`System.Windows.Forms`/`System.Drawing`を除外。
 - ウィンドウ位置・大きさ・最大化・ログ開閉は`window.json`（config.jsonとは別。gitignore済み）。
 ### GUI（Gui/）
 - ダークテーマ（App.xaml）。上部に「中継」「設定」の連結タブ、右上に「ログ」ボタン。ログは右へ引き出すドロワー式（開くとウィンドウが右へ広がる。最大化中は内側）。ログはGUI内保持（最大5000行、全て/警告以上、コピー、保存、クリア。ファイル出力は設定で任意）。
@@ -83,7 +86,9 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 ## 8. 実機確認の状況（利用者のPC・oddcast改造版）
 - oddcast: Icecast2形式。**ユーザー名欄なし**（Encoder Password・Mountpointのみ）。`SOURCE /stream ICE/1.0`（3語、Basic認証）を送る。Server IP欄はIPのみ（ポートは別欄）。TLSは当面off（TLSは平文の確認後に試す。oddcast側はSChannel/TLS1.2、指紋固定）。
 - 実機OK: P0〜P3、P3.5のタブ/ログドロワー/設定保存/ウィンドウ復元/視聴URLパス/停止ボタン、oddcast接続・視聴・自己検査OK。
-- **未確認（最新ビルド 1.0.0.19 = Actions run #19）**: アクセス制御、設定画面の刷新（ⓘ・未保存表示・赤エラー・セキュリティ警告ダイアログ）、視聴ページひな形出力とviewer.css、pdb埋め込み。確認項目（5つ）: ①設定が「見出し：入力欄」でそろい、ⓘに説明が出る ②変更で「● 未保存」→保存で緑✓、ポートに「abc」で赤✗と赤枠 ③TLSを「なし」にして保存すると警告ダイアログ、「いいえ」で保存されない／「はい」で中継画面に黄色警告 ④ひな形出力でviewer.cssができ、`body{background:#101820;}`で視聴ページが変わる ⑤拒否リストに`ua:Chrome`で視聴ページが拒否(403)される（確認後に消す）。
+- **実機OK（1.0.0.19）**: アクセス制御、設定画面の刷新、ひな形出力とviewer.css、pdb埋め込み（確認項目5つとも）。
+- **未確認（今回の変更）**: 設定画面の見出し列を自動幅にして左余白を詰めた／ひな形を`viewer`フォルダへ出力（旧位置も読む）／プリセット／タスクトレイ。
+- （旧・確認済みの項目） アクセス制御、設定画面の刷新（ⓘ・未保存表示・赤エラー・セキュリティ警告ダイアログ）、視聴ページひな形出力とviewer.css、pdb埋め込み。確認項目（5つ）: ①設定が「見出し：入力欄」でそろい、ⓘに説明が出る ②変更で「● 未保存」→保存で緑✓、ポートに「abc」で赤✗と赤枠 ③TLSを「なし」にして保存すると警告ダイアログ、「いいえ」で保存されない／「はい」で中継画面に黄色警告 ④ひな形出力でviewer.cssができ、`body{background:#101820;}`で視聴ページが変わる ⑤拒否リストに`ua:Chrome`で視聴ページが拒否(403)される（確認後に消す）。
 - 未試験: oddcastのTLS接続、Tailscale Funnel経由の再生、iPhone Safari。
 
 ## 9. CLI（コンソール版・CI用）
@@ -102,16 +107,17 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 - XAMLの入れ子ミス（Borderに子が2つ）はLinuxのコンパイル確認でも検出できる（`EnableWindowsTargeting`）。
 - oddcastは3語のICE/1.0形式。Kestrel graceful shutdownは視聴者のWebSocketで30秒待つ → 終了時に先に全視聴者を切断＋ShutdownTimeout=3秒。
 - JSONメタデータはUnsafeRelaxedJsonEscapingで日本語をそのまま。CIのffmpeg MP3は`-write_xing 0 -id3v2_version 0`でバイト一致比較。
+- WPFでNotifyIconを使うには`UseWindowsForms`が要り、暗黙usingで`Application`/`MessageBox`/`Button`等が曖昧になる → csprojで`<Using Remove="System.Windows.Forms"/>`と`System.Drawing`を外し、トレイ側は完全修飾名で書く。
+- 設定画面の見出し列は固定幅にせずAuto（最長の見出しに合わせる。項目が増えても崩れない）。
 
 ## 12. バックログ（優先順）
-1. ②プリセット登録（名前付き設定セットの保存・読込・削除。`presets/`フォルダ案）／タスクトレイアイコン（最小化・常駐・中継状態表示）。
-2. ③視聴者接続時の通知音（wav/mp3指定）／帯域使用率の折れ線グラフ（画面最下部。入力・出力転送量を1秒ごと。StreamHubに送信バイト統計が必要）。
-3. ④ミラー: 暗号文のまま別のBatonE2Eへ転送して視聴者を分散・予備にする（ミラー側はパスワード不要）。
-4. P4: README書き直し（日本語。守れること/守れないこと、Tailscale Funnel/ngrokの手順、検証済み/未検証の配信ソフト表、開発者向けは最下段に簡素に）、config.jsonとコンソール版の連携（引数>環境変数>config）、Releases（tag）の試験、成果物にLICENSE.txt。
-5. アイコン（assets/BatonE2E.ico）、視聴側待ち受け(ViewBind)のGUI設定、視聴ページの文言設定、遅延(バッファ秒数)設定。
-6. P5（復号ヘルパー）→ P5.5（入力アダプタ）→ 任意（Argon2id、iPhone Safari検証）。
-7. SHA固定（残りのAction）。1ファイル200行前後の分割（MainWindow.xaml.cs・MainWindow.Settings.cs・SourceListener.cs・AccessControl.cs）。
-8. 最終レビュー（動作・セキュリティ・バグを数回に分けて）。
+1. ③視聴者接続時の通知音（wav/mp3指定）／帯域使用率の折れ線グラフ（画面最下部。入力・出力転送量を1秒ごと。StreamHubに送信バイト統計が必要）。
+2. ④ミラー: 暗号文のまま別のBatonE2Eへ転送して視聴者を分散・予備にする（ミラー側はパスワード不要）。
+3. P4: README書き直し（日本語。守れること/守れないこと、Tailscale Funnel/ngrokの手順、検証済み/未検証の配信ソフト表、開発者向けは最下段に簡素に）、config.jsonとコンソール版の連携（引数>環境変数>config）、Releases（tag）の試験、成果物にLICENSE.txt。
+4. アイコン（assets/BatonE2E.ico）、視聴側待ち受け(ViewBind)のGUI設定、視聴ページの文言設定、遅延(バッファ秒数)設定。
+5. P5（復号ヘルパー）→ P5.5（入力アダプタ）→ 任意（Argon2id、iPhone Safari検証）。
+6. SHA固定（残りのAction）。1ファイル200行前後の分割（MainWindow.xaml.cs・MainWindow.Settings.cs・SourceListener.cs・AccessControl.cs）。
+7. 最終レビュー（動作・セキュリティ・バグを数回に分けて）。
 
 ## 13. 作業メモ（中断・再開用。着手前に1行書き、完了で消す）
-- ②タスクトレイ 実装済み・CI確認待ち（プリセットは完了。完了後にこの行とバックログ1番を更新）
+- （現在なし）
