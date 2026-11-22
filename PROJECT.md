@@ -1,81 +1,117 @@
-# PROJECT.md（仕様の正）
+# PROJECT.md（仕様の正・引き継ぎ資料）
 
-## 目的
-匿名掲示板にURLを貼り、パスワードを知る人だけがブラウザで聴ける、E2E暗号化の音声ライブ配信リレー。
-**最優先事項: 安全性（暗号は標準AES-GCM/PBKDF2のみ、独自設計なし）。** 迷ったらこれを基準にする。
+新しいチャットは、まずこのファイルと `.claude/CLAUDE.md`、必要なら `docs/BatonE2E.txt`（依頼書の全文）を読む。チャットの記憶よりこのファイルを優先する。仕様が変わったらその場で更新する（複製を作らない）。
 
-## 技術スタック（固定）
-C# / .NET 8 / コンソールアプリ / win-x64 単一ファイル・自己完結。外部ライブラリは増やさない。
-Core（UI・OS非依存の純ロジック）とアプリ本体を分離。コードは全て `src/`。
+## 1. 目的と最優先
+匿名掲示板にURLを貼り、パスワードを知る人だけがブラウザで聴ける、E2E暗号化の音声ライブ配信リレー（Windows。oddcastなどから受け取り、暗号化して視聴者へ渡す「中継ソフト」。音を作る・加工する機能は持たない）。
+**最優先: 安全性。暗号は標準のAES-GCM/PBKDF2のみ、独自設計なし。迷ったらこれを基準にする。** 安全性を下げる設定は、変更時に必ず警告する。
 
-## 版数
-ビルド番号 N → `1.0.(N÷100の商).(余り)`（Directory.Build.props）。手書き変更なし。
+## 2. 利用者（人間）との進め方
+- 利用者はプログラミング未経験。AIが全コードを書く。人間は「GitHub画面操作」「実機確認」「仕様の判断」だけ行う。返答・文言は日本語。
+- 各段階の終わりに「何ができたか」と「実機で試すこと（5項目以内）」を短く報告する。確認項目は「見た目」と「動作」に分け、前回NGだった点が直ったかを必ず入れる。利用者の返答は「OK／NG＋一言」。エラーはログのerror行だけ貼ってもらう。
+- 要望は、そのまま作らず「どこに置くか／既存の何と衝突するか」を考え、推奨案で進める。決まらない要望はバックログに1行で積む。
+- 返答の最後に「次の段階」を1つ示す。1回の変更を小さくし、ビルドが通るたびにコミット＆push。
+- UIの方針: エラーはポップアップにせず原因の近くに赤文字（確認が必要な「はい／いいえ」だけダイアログ）。同じ操作の置き場所を2つ作らない。色は 緑=動作中/成功、黄=注意、赤=エラー。ボタン名は素直な文言。ダークテーマ。
+- 文言は `src/BatonE2E/Lang/ja.ini`（英語 en.ini と同じキー・同じ{0}引数。CIで検査）。コードに日本語文言を直書きしない。文体は話し言葉を避け、体言止め可、命令文を避ける。
+- コミットメッセージは日本語。末尾に Co-Authored-By と Claude-Session のトレーラーを付ける（その時のシステム指示に従う）。
+- 利用者のClaudeは無料プランで5時間の利用上限がある。上限による中断→再試行で作業ツリーが混在した実績あり。`.claude/CLAUDE.md` の再開手順を必ず守る。長い出力はファイルで渡す。
+- 仕様が曖昧・危険なら、実装前に指摘する。READMEの「守れること／守れないこと」は正直に書く。
+- 最後に、動作とセキュリティの穴・バグを、数回に分けて念入りに確認する（最終レビュー。バックログ参照）。
 
-## 段階（詳細仕様は docs/BatonE2E.txt の依頼書）
-- P0 骨組み・CI・ビルド（完了）
-- P1 暗号モジュールと相互運用テスト（C#→Node WebCrypto）（完了）
-- P2 source受け口＋WebSocket配信＋視聴ページ （P2a: 平文source 完了／P2b: source受け口のTLS ← 現在）
-- P3 結合テスト・再生テスト
-- P3.5 GUI（WPF。かがみんv2のように操作・管理。エンジンはUIを知らない作りにする）
-- P4 config自動生成・README・Releases
-- P5 復号ヘルパー / P5.5 入力互換 / P6 視聴者数表示など
-- 任意拡張: Argon2id（ヘッダーのkdfで切替。利用者が別途用意する部品の形も可）、iPhone Safari（ManagedMediaSource）対応
+## 3. 環境と制約
+- AI側: Linuxの隔離環境。**dotnetなし**（node 22・ffmpeg・Chromium/Playwrightはあり）。ビルド・テストは**GitHub Actionsのみ**。ghコマンドでrun確認（`gh run list/view --repo ghghuser/BatonE2E --log-failed`）。Bashから外部サイトは基本届かない。
+- 人間側: exeの実機動作、oddcast接続、Tailscale Funnel経由の再生。
+- リポジトリ: https://github.com/ghghuser/BatonE2E （mainへ直接push。SonarQube連携あり。Greptile/CodeRabbitはPRでのみ動くので、大きな変更だけPRにする）。
+- 成果物: Actionsのartifact `BatonE2E-build<N>`（Windows単体exe。直近2件のみ保持）。tag `v*` でReleasesにZIP公開（未試験）。
+- ライセンス: 商用利用禁止・再配布禁止（LICENSE、README、アプリ内、成果物のLICENSE.txt）。
 
-## AIが確認できること / 人間にしか確認できないこと
-- AI: コードの作成、push、Actionsの結果（ログの error 行）。この環境にdotnetはなく、ビルドはActionsのみ。
-- 人間: exeの実機動作、oddcast接続、Tailscale Funnel経由の再生。
+## 4. 技術スタック（固定）
+C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ライブラリは増やさない（利用者が別途用意する拡張の形はOK）。Core（UI・OS非依存）とUIを分離。コードは全て `src/`。デバッグ情報(.pdb)は埋め込み（Directory.Build.props）。版数はビルド番号N → `1.0.(N÷100の商).(余り)`（手書き変更なし）。
 
-## 想定される問題と対策
-- ビルド環境: ローカルにdotnetなし → Actionsで検証。失敗時はログの error 行を確認。
-- Actionの一部がSHA未固定（取得手段がなかった）→ ci.yml の TODO を後で固定。
-- Sonarワークフローは既存。slnを src/ に置いたため `dotnet build src/BatonE2E.sln` に変更済み。
-- 成果物はフォルダのままupload-artifactへ渡す（ZIPの二重化防止）。直近2件のみ保持。
-- 文言は `src/BatonE2E/Lang/ja.ini`。コード中に日本語文言を直書きしない（P0の自己テスト用ログを除く）。
+## 5. リポジトリ構成
+- `.github/workflows/ci.yml`: ジョブ test(ubuntu: 自己テスト＋Node相互運用＋GUIのコンパイル確認) → integration(ubuntu: 実アプリ結合＋Chromium) → build(windows: GUIをpublish、成果物登録、古い成果物削除) → release(tagのみ)。`build.yml`はSonar（windows、`dotnet build src/BatonE2E.sln`）。docs/・*.md・*.txtだけの変更ではビルドしない。
+- `src/BatonE2E.Core`: Crypto/（CryptoConstants, StreamHeader, KeyDerivation, FrameEncryptor, FrameDecryptor, FrameFormat）、Engine/（RelayEngine, EngineOptions, EngineStats, StreamHub, ViewerConnection, SourceListener, SourceRequest, BodyReaders, BufferedSource, ViewerServer, AccessControl, ViewerTemplate）、Config/AppSettings.cs、Security/（PassphraseGenerator, SourceCertificate）、Logging/AppLog.cs、Loc.cs、AppInfo.cs、Web/viewer.html（埋め込み）。
+- `src/BatonE2E.Gui`: WPF。exe名は `BatonE2E`。App.xaml(.cs)、MainWindow.xaml、MainWindow.xaml.cs（中継画面・ログ・ウィンドウ状態）、MainWindow.Settings.cs（設定画面）。Langは `../BatonE2E/Lang/*.ini` を共有してexeの横へ出力。
+- `src/BatonE2E`: コンソール版（AssemblyName=`BatonE2E.Console`）。CIの結合試験専用で、成果物には含めない。CLI引数は第9章。
+- `src/BatonE2E.Tests`: 自己テスト（外部ライブラリなし。T.Check）。`integration/`にreceive.mjs（復号受信）、send-raw.mjs（生ソケット送信）、scenario.sh、browser.mjs（Playwright）。`interop/verify.mjs`はC#→Node WebCryptoの相互運用。
+- `docs/BatonE2E.txt`: 依頼書の全文（仕様の元）。`assets/`: アイコン置き場（`BatonE2E.ico`を置けばcsprojが拾う。未作成）。
 
-## 暗号仕様 v1（実装: src/BatonE2E.Core/Crypto）
-- 鍵導出: PBKDF2-HMAC-SHA256、反復600000（視聴側は100000〜10000000のみ受理）、salt16、鍵256bit。パスワードはNFC正規化→UTF-8。
+## 6. 段階と状況
+| 段階 | 内容 | 状況 |
+|---|---|---|
+| P0 | 骨組み・CI・ビルド | 完了・実機OK |
+| P1 | 暗号モジュール＋相互運用テスト | 完了 |
+| P2a/P2b | source受け口＋WebSocket＋視聴ページ／sourceのTLS | 完了・実機OK |
+| P3 | 結合テスト（ffmpeg/curl/生ソケット/TLS→復号→バイト一致）＋Chromium再生 | 完了（CI緑） |
+| P3.5 | WPF GUI | 実装・主要部は実機OK。最新分は実機確認待ち（第8章） |
+| 追加(要望) | ①アクセス制御 | 実装・CI緑・実機確認待ち |
+| 追加(要望) | ②プリセット登録・タスクトレイ → ③通知音・帯域グラフ → ④ミラー | **次に着手（②から）** |
+| P4 | README(日本語)・config整備・Releases | 未（READMEは古い。書き直し必須） |
+| P5 | 復号ヘルパー（`--listen`／`e2e-listener.exe`） | 未 |
+| P5.5 | 入力アダプタ（Shoutcast v1/v2、pull中継、stdin、外部コマンド、ffmpegトランスコード、曲名転送） | 未（現状はIcecast式のみ） |
+| P6 | 視聴者数表示ほか | 未（GUIに視聴者数はある） |
+| 任意 | Argon2id（ヘッダーのkdfで切替）、iPhone Safari（ManagedMediaSource、コードは入っているが未検証） | 未 |
+
+## 7. 仕様（実装済みの要点）
+### 暗号 v1（Core/Crypto）
+- 鍵導出: PBKDF2-HMAC-SHA256、反復600000（視聴側は100000〜10000000のみ受理）、salt16、鍵256bit。パスワードはNFC正規化→UTF-8（日本語可。濁点の合成/分解違いでも同じ鍵になる。試験あり）。
 - 暗号: AES-256-GCM。フレーム = 連番8(BE) + 暗号文 + タグ16。nonce = sid(4)+連番(8)。AAD = "E2ERv1"+sid+連番(8)。
-- 平文の先頭1バイトが種別（0x00確認/0x01音声/0x02曲名/0x03形式変更）。種別は暗号文の内側にありGCMで改ざん検知される（AADには入れない）。
-- 連番0 = 確認ブロック（0x00 + "E2ERADIO1"）。1以降は全種別で共通の単調増加。受信側は最初に受けた値から+1を要求。
-- 塩とsidはセッション（起動）ごとに乱数。
+- 平文の先頭1バイトが種別（0x00確認/0x01音声/0x02曲名JSON/0x03形式変更mime）。種別は暗号文の内側（GCMで改ざん検知。AADには入れない）。
+- 連番0 = 確認ブロック（0x00+"E2ERADIO1"）。1以降は全種別で共通の単調増加。受信側は最初に受けた値から+1を要求。塩とsidは起動（セッション）ごとに乱数。
+- WebSocket最初のメッセージ: JSON `{v:1, kdf:"PBKDF2-SHA256", iter, salt, sid, mime}`。
+### エンジン（Core/Engine）
+- SourceListener: 生TCP。受理形式は `PUT /m HTTP/1.1`、`SOURCE /m HTTP/1.0`（Basic source:pw）、旧 `SOURCE pw /m ICE/1.0`、**oddcastの `SOURCE /m ICE/1.0`（3語・Basic）**。chunked/生ボディ、`Expect: 100-continue`、曲名GET(/admin/metadata)、後から繋いだ方に切替(takeover)。認証失敗は理由別ログ（受信ヘッダー名も出す。パスワードは出さない）。ユーザー名不問の逃げ道あり（パスワードは必須）。
+- 待ち受け: 既定127.0.0.1。`SourceBind`が127.0.0.1以外なら、TLSを「なし」にできず、sourceパスワード12文字以上が必須（Validate/Check）。
+- source TLS: auto（先頭1バイト0x16で判定）/on/off。TLS1.2・1.3。RSA2048+SHA-256自己署名、SAN=IP:127.0.0.1+DNS:localhost、10年、`tls/source.pfx`と`source.cer`に保存し再生成は期限切れか`--regen-cert`のみ（oddcast側の`ServerTLSTrustedCert`行の削除が必要）。起動時にSHA-256指紋を表示。
+- StreamHub: 暗号化と配布を同一ロックで実施。視聴者なしなら暗号化しない。有限キュー、遅い視聴者は切断。暗号化結果を自分で復号して照合する自己検査（Stats.CheckOk/CheckNg。GUIに緑/赤表示）。
+- ViewerServer(Kestrel): 視聴ページは`ViewPath`（既定`/`）、WebSocketは「パス/ws」。他のパスは404。CSPあり。`viewer.html`（exeの横）があれば全体差し替え、`viewer.css`があれば<head>末尾へ差し込み（毎回読み直し。再起動不要）。
+- アクセス制御(AccessControl): 全リクエストの入口で、拒否リスト(`ip:`単独/CIDR、`ua:`/`host:`は正規表現=NonBacktracking+50msタイムアウト、先読み不可、200字まで) → 連打制限(N秒にM回以上→K秒拒否、HTTP 429+Retry-After、拒否時に接続中の視聴者も切断) → WebSocketでは1人(IP)あたり同時接続数(429)。既定: 3接続/人、10秒に30回で60秒拒否。接続元は、TCP接続元がループバックの時だけ`X-Forwarded-For`の**最も右**を採用（`UseProxyHeader`、既定オン。Tailscale Funnel/ngrok対策）。ログは同一IPにつき60秒間引く。
+- 視聴ページ(viewer.html): 単一HTML。WebCrypto、MSE/ManagedMediaSource、mode='sequence'、同期位置まで読み捨て、バッファ削除、自動再接続、改ざん/連番エラーで停止、**停止ボタン**（停止→再生で再生側を作り直して最新から再開）。パスワードが違えば「パスワードが違います」。`{{TITLE}}`で題名（アプリ名は出さない）。
+### 設定（Core/Config/AppSettings → config.json、exeの横）
+項目: Language(ja/en), SourcePort, SourceBind, ViewPort, ViewPath, Mount, SourcePassword(空=起動ごと自動生成), ViewPassword(同), PageTitle, MaxViewers, SourceTls(auto/off/on), AcceptAnySourceUser, LogToFile, MaxConnPerClient, RateWindowSec, RateMaxRequests, RateBanSec, DenyRules(改行区切り), UseProxyHeader。
+- 視聴パスフレーズ: 8文字未満は保存・開始を拒否、12文字未満は警告。ポート重複・範囲外・拒否リストの誤りも保存不可（Issue{Key,Field,Args}）。値は`Normalize()`で安全な範囲へ補正。
+- 保存は一時ファイル→置換。内容が変わるたびに`backup/config-*.json`へ複製（直近10件）。壊れた設定は`config.json.broken-*`へ退避して既定値で起動。
+- `SecurityWarnings()`: TLSなし／ユーザー名不問／視聴12文字未満／source8文字未満／外部待ち受け／接続数制限なし／連打制限なし／トンネルIP不使用。GUIは「新しく加わる弱い設定」を保存前に確認ダイアログで警告し、保存済みの弱い設定は中継画面に常時警告、中継開始時にログへも出す。
+- ウィンドウ位置・大きさ・最大化・ログ開閉は`window.json`（config.jsonとは別。gitignore済み）。
+### GUI（Gui/）
+- ダークテーマ（App.xaml）。上部に「中継」「設定」の連結タブ、右上に「ログ」ボタン。ログは右へ引き出すドロワー式（開くとウィンドウが右へ広がる。最大化中は内側）。ログはGUI内保持（最大5000行、全て/警告以上、コピー、保存、クリア。ファイル出力は設定で任意）。
+- 中継画面: 開始/停止、状態、視聴者数・入力量・フレーム数、暗号化の自己検査表示、oddcast設定値（サーバー/ポート/マウント/ユーザー名source/パスワード/TLS/指紋）と視聴URL・視聴パスフレーズ（各コピーボタン）。
+- 設定画面: 「見出し(右寄せ)：入力欄(左端そろえ)＋ⓘ(詳細はツールチップ)」。未保存表示、保存結果（緑✓/赤✗）、問題欄を赤枠、バックアップから復元、設定フォルダを開く、視聴ページひな形出力（viewer.html/viewer.css。既存は上書きしない）。
+### マウントとURL
+マウントはoddcast→本アプリへの宛先名で、視聴URLとは無関係（不一致は警告のみで受理）。視聴URLのパスは`ViewPath`で自由設定。公開はTailscale Funnel/ngrok前提（視聴側のhttpsが必須。http+非localhostではWebCryptoが使えない）。視聴側の待ち受け(`ViewBind`)のGUI設定は未対応（エンジンは対応）。
 
-## エンジン構成（src/BatonE2E.Core/Engine）
-- SourceListener: 127.0.0.1のみ、生TCP。PUT / SOURCE / ICE/1.0、chunked、Expect: 100-continue、曲名GET。後から繋いだ方に切替（takeover）。
-- StreamHub: 入力を暗号化して全視聴者へ配信（暗号化と配布は同一ロック）。暗号化結果を自分で復号して照合する自己検査あり（Stats.CheckOk/CheckNg）。
-- ViewerServer: Kestrel（共有フレームワーク）。GET / = 視聴ページ（exeの横のviewer.htmlがあれば優先）、GET /ws = WebSocket。
-- 視聴者は有限キュー。溢れた（遅い）視聴者は切断。上限人数超過は503。
-- 暗号化の確認表示: コンソールの統計行に「暗号化の自己検査 OK/NG」を10秒ごとに出力。
+## 8. 実機確認の状況（利用者のPC・oddcast改造版）
+- oddcast: Icecast2形式。**ユーザー名欄なし**（Encoder Password・Mountpointのみ）。`SOURCE /stream ICE/1.0`（3語、Basic認証）を送る。Server IP欄はIPのみ（ポートは別欄）。TLSは当面off（TLSは平文の確認後に試す。oddcast側はSChannel/TLS1.2、指紋固定）。
+- 実機OK: P0〜P3、P3.5のタブ/ログドロワー/設定保存/ウィンドウ復元/視聴URLパス/停止ボタン、oddcast接続・視聴・自己検査OK。
+- **未確認（最新ビルド 1.0.0.19 = Actions run #19）**: アクセス制御、設定画面の刷新（ⓘ・未保存表示・赤エラー・セキュリティ警告ダイアログ）、視聴ページひな形出力とviewer.css、pdb埋め込み。確認項目（5つ）: ①設定が「見出し：入力欄」でそろい、ⓘに説明が出る ②変更で「● 未保存」→保存で緑✓、ポートに「abc」で赤✗と赤枠 ③TLSを「なし」にして保存すると警告ダイアログ、「いいえ」で保存されない／「はい」で中継画面に黄色警告 ④ひな形出力でviewer.cssができ、`body{background:#101820;}`で視聴ページが変わる ⑤拒否リストに`ua:Chrome`で視聴ページが拒否(403)される（確認後に消す）。
+- 未試験: oddcastのTLS接続、Tailscale Funnel経由の再生、iPhone Safari。
 
-## source受け口のTLS（P2b）
-- `SourceTls`: auto（既定。最初の1バイトが0x16ならTLS）/ on / off。TLS 1.2・1.3、最初から暗号化する方式のみ。
-- 証明書: RSA2048+SHA-256 自己署名、SAN=IP:127.0.0.1+DNS:localhost、10年。`tls/source.pfx`（秘密鍵、パスワードなし）と `source.cer`（公開部）に保存し、毎回は作り直さない。作り直しは期限切れまたは `--regen-cert` のみ（oddcast側の ServerTLSTrustedCert 行の削除が必要と警告）。起動時にSHA-256指紋を表示。
-- oddcast（Icecast2形式）の設定画面にユーザー名欄がない。通例は `source` 固定で送られる想定。認証失敗時は受信したユーザー名（パスワードは出さない）をログに出す。ユーザー名が違う場合の逃げ道として `--accept-any-source-user`（パスワードは必須のまま）。
-- 視聴ページの題名・見出しは `--title`（既定「ライブ配信」。アプリ名は出さない）。
+## 9. CLI（コンソール版・CI用）
+`--source-port --source-bind --view-port --view-path --mount --max-viewers --source-password --password --title --cert-dir --regen-cert --accept-any-source-user --source-tls auto|off|on --max-conn-per-client --rate-window --rate-max --rate-ban --deny "規則;規則"`（環境変数 `BATONE2E_*` も可。優先順位は 引数 > 環境変数 > config.json の予定だが、config.jsonの読み込みはGUIのみで、コンソール版は未対応）。
 
-## 現在の状態
-P0・P1・P2a・P2b完了。P3完了（CI緑）: 実アプリを起動し、curl(PUT/chunked)・ffmpeg(icecast)・生ソケット(SOURCE HTTP/1.0、SOURCE pw /m ICE/1.0、SOURCE /m ICE/1.0)・TLS1.2(指紋固定+SAN確認)で送信 → Node WebSocket受信側が復号 → 元MP3とバイト一致。Chromiumで視聴ページ実再生（currentTime進行、誤パスワード表示、題名にアプリ名なし）。
-- 実機で判明: oddcastは `SOURCE /stream ICE/1.0`（3語・Basic認証）を送る → P2b後に対応済み（実機再確認待ち）。oddcastのServer IP欄はIPのみ（ポートは別欄）。
-- 実機確認: oddcast（ICE/1.0）接続・視聴・自己検査OK。コンソール版は「停止」操作が弱い（Ctrl+C相当）→GUIに停止/開始ボタンを設ける。
-- P3.5 実装済み・CI緑（実機確認待ち）: src/BatonE2E.Gui（WPF、exe名BatonE2E）。配信/ログ/設定の3画面、開始停止、ダークテーマ、日英(Lang/ja.ini,en.ini)、config.json＋backup/（直近10件）。ログはGUI内保持（既定でファイル出力なし）。コンソール版は src/BatonE2E（AssemblyName=BatonE2E.Console、CI結合試験用・成果物には含めない）。
-- P3.5 実機確認OK。追加対応済み: 視聴ページの停止ボタン（停止→再生で最新から再開、CIで検証）、GUIのログを右側の開閉パネルに変更、視聴パスフレーズは最小8文字（推奨12文字、日本語可・NFC正規化）。
-- 追加: ボタン名「中継を開始/停止」、視聴URLのパス設定（ViewPath。設定外は404、WebSocketは「パス/ws」、CIで検証）、ウィンドウ位置・大きさ・ログパネル開閉の保存復元（window.json、gitignore済み）。マウントは配信ソフト→本アプリ側の名前で、視聴URLとは無関係（不一致は警告のみで受理）。
-- 追加: タブ化（中継/設定）、ログは右へ引き出すドロワー式、sourceの待ち受けアドレス設定（127.0.0.1以外はTLS必須・sourceパスワード12文字以上）。
-- ①アクセス制御 実装済み・CI緑: 1人あたり接続数、連打制限（N秒にM回以上→K秒拒否＋接続中も切断）、拒否リスト（ip:/ua:/host:、正規表現はNonBacktracking）、X-Forwarded-For（最も右、接続元がこのPCの時のみ）。
-- 設定画面刷新: 見出し：入力欄＋ⓘ、未保存表示、保存結果（緑✓/赤✗）、問題欄を赤枠、セキュリティを下げる変更は保存前に確認ダイアログ＋中継画面に常時警告。視聴ページ: viewer.css（見た目のみ）/viewer.html（全体差し替え）、設定画面のボタンでひな形出力。pdbは埋め込み。
-- 次: ②プリセット登録・タスクトレイ → ③通知音・帯域グラフ → ④ミラー。
-- 次(旧): 実機確認の結果を反映 → P4（README・Releases・config整備）。視聴URLのパス自由設定は未対応（バックログ）。
+## 10. CI・テスト（Actionsのみで検証）
+- 自己テスト: Core、暗号（改ざん・連番・別セッション等）、設定、en.ini整合、TLS、アクセス制御（単体＋結合）。Nodeでの相互運用（C#暗号化→WebCrypto復号）。
+- 結合(ubuntu): 実アプリを `--view-path /live-abc --rate-max 0 --max-conn-per-client 10` で起動し、curl(PUT/chunked)・ffmpeg(icecast)・生ソケット(SOURCE HTTP/1.0、ICE/1.0 4語/3語)・TLS1.2(SAN+指紋固定)で送信→Node WebSocketで復号→元MP3とバイト一致。`/`と`/ws`は404、`/live-abc/`は200。Chromium: 題名・MSE対応・誤パスワード表示・再生位置が進む・停止・再開。
+- 失敗時はログのerror行を見る。シナリオ名ごとに送信形式が違う（curl-put/curl-chunked/ffmpeg-icecast/raw-*/tls12）。
+- 未固定のAction: setup-dotnet@v4、setup-node@v4、upload/download-artifact@v4（SHA固定のTODOあり。checkoutのみ固定済み）。
 
-## 作業メモ（中断・再開用。着手前に1行書き、完了で消す）
+## 11. 落とし穴（実際に踏んだもの）
+- WPFの暗黙usingに `System.IO` がない → 各.csに `using System.IO;`（または csprojに `<Using Include="System.IO"/>`）。
+- ASP.NET Coreのルートは末尾スラッシュ違い（`/a`と`/a/`）を別登録すると曖昧一致で500 → 1つだけ登録。
+- 視聴ページのCSP（unsafe-evalなし）下ではPlaywrightの`waitForFunction`が使えない → `evaluate`で繰り返し確認。ESMはNODE_PATHを見ない → playwrightのあるフォルダでスクリプトを実行。
+- XAMLの入れ子ミス（Borderに子が2つ）はLinuxのコンパイル確認でも検出できる（`EnableWindowsTargeting`）。
+- oddcastは3語のICE/1.0形式。Kestrel graceful shutdownは視聴者のWebSocketで30秒待つ → 終了時に先に全視聴者を切断＋ShutdownTimeout=3秒。
+- JSONメタデータはUnsafeRelaxedJsonEscapingで日本語をそのまま。CIのffmpeg MP3は`-write_xing 0 -id3v2_version 0`でバイト一致比較。
+
+## 12. バックログ（優先順）
+1. ②プリセット登録（名前付き設定セットの保存・読込・削除。`presets/`フォルダ案）／タスクトレイアイコン（最小化・常駐・中継状態表示）。
+2. ③視聴者接続時の通知音（wav/mp3指定）／帯域使用率の折れ線グラフ（画面最下部。入力・出力転送量を1秒ごと。StreamHubに送信バイト統計が必要）。
+3. ④ミラー: 暗号文のまま別のBatonE2Eへ転送して視聴者を分散・予備にする（ミラー側はパスワード不要）。
+4. P4: README書き直し（日本語。守れること/守れないこと、Tailscale Funnel/ngrokの手順、検証済み/未検証の配信ソフト表、開発者向けは最下段に簡素に）、config.jsonとコンソール版の連携（引数>環境変数>config）、Releases（tag）の試験、成果物にLICENSE.txt。
+5. アイコン（assets/BatonE2E.ico）、視聴側待ち受け(ViewBind)のGUI設定、視聴ページの文言設定、遅延(バッファ秒数)設定。
+6. P5（復号ヘルパー）→ P5.5（入力アダプタ）→ 任意（Argon2id、iPhone Safari検証）。
+7. SHA固定（残りのAction）。1ファイル200行前後の分割（MainWindow.xaml.cs・MainWindow.Settings.cs・SourceListener.cs・AccessControl.cs）。
+8. 最終レビュー（動作・セキュリティ・バグを数回に分けて）。
+
+## 13. 作業メモ（中断・再開用。着手前に1行書き、完了で消す）
 - （現在なし）
-
-## バックログ
-### GUI/運用機能（ユーザー要望 2026-11-22。実装順の案: ①アクセス制御 ②プリセット・トレイ ③接続音・帯域グラフ ④ミラー）
-- ①アクセス制御（視聴側）: 同一クライアントの同時接続数制限／連打アクセスのキック（N秒にM回以上→K秒拒否）／拒否リスト（IP・UserAgent・ホスト、正規表現可。ReDoS対策でNonBacktracking＋タイムアウト）。注意: Tailscale Funnel/ngrok経由だと接続元が127.0.0.1に見えるため、「信頼するプロキシのX-Forwarded-Forを使う」設定が必須。
-- ②プリセット登録（名前付き設定セットの保存・読込・削除）／タスクトレイアイコン（最小化・常駐、中継状態表示）
-- ③視聴者接続時の通知音（音声ファイル指定可、wav/mp3）／帯域使用率の折れ線グラフ（画面最下部。入力・出力の転送量を1秒ごとに記録）
-- ④ミラー: 暗号文のまま別の中継（BatonE2E）へ転送し視聴者を分散・予備にする（ミラー側はパスワード不要）。P6候補。
-- 視聴側の待ち受けアドレス（ViewBind）のGUI設定は未対応。外部公開にはhttpsが必要（http+非localhostではWebCrypto不可）なので、現状はTailscale Funnel/ngrok前提。
-- 生のコンソール表示オプションは不要（GUIのログ欄＋コピー/保存で代替）。
-- ログはGUI内に保持し、ログ表示ウィンドウで閲覧できるようにする（ファイル出力は併用）
-- パス設定: source側のマウント(--mount、現状も変更可)・視聴URLのパス・パスワード（視聴/source）を自由に設定可能にする（config.json＋GUI）
-- アイコン（assets/BatonE2E.ico）／英語 Lang/en.ini／設定のバックアップ機構／ダークテーマ（GUI段階）
