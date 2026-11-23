@@ -130,6 +130,7 @@ internal static class IntegrationTests
         // 暗号化の自己検査・全体の健全性
         T.Check("結合: 全フレームで復号・連番検査が成功（失敗なし）", v.Failure == null);
         T.Check("結合: 視聴者の接続イベントが1回通知される", Volatile.Read(ref joined) == 1);
+        T.Check("結合: 最大同時接続1・延べ接続1", eng.Stats.PeakViewers == 1 && eng.Stats.TotalViewers == 1);
         T.Check("結合: 視聴者への送信量が統計に入る（音声の合計以上）", eng.Stats.BytesOut >= d1.Length + d2.Length + d3.Length + d4.Length);
         T.Check("結合: 自己検査が実行され、失敗0", eng.Stats.CheckOk > 0 && eng.Stats.CheckNg == 0);
 
@@ -138,10 +139,12 @@ internal static class IntegrationTests
         _ = Task.Run(() => v2.RunAsync(o.ViewPort, ViewPw));
         await WaitAsync(() => v2.PasswordOk);
         T.Check("結合: 2人目の視聴者は接続できる", v2.PasswordOk);
+        T.Check("結合: 最大同時接続2・延べ接続2", eng.Stats.PeakViewers == 2 && eng.Stats.TotalViewers == 2);
         var rejected = false;
         try { using var v3 = new ClientWebSocket(); await v3.ConnectAsync(new Uri($"ws://127.0.0.1:{o.ViewPort}/ws"), CancellationToken.None); }
         catch (WebSocketException) { rejected = true; }
         T.Check("結合: 上限を超える接続は拒否", rejected);
+        T.Check("結合: 拒否された接続は延べ接続に数えない", eng.Stats.TotalViewers == 2 && eng.Stats.PeakViewers == 2);
 
         // 視聴ページ
         using var http = new HttpClient();

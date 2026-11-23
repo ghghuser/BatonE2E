@@ -42,7 +42,7 @@
             <StackPanel Grid.Column="0">
               <TextBlock x:Name="tbState" FontSize="20" FontWeight="SemiBold"/>
               <TextBlock x:Name="tbSource" Margin="0,6,0,0"/>
-              <TextBlock x:Name="tbStats" Margin="0,2,0,0" Foreground="{StaticResource MutedBrush}"/>
+              <TextBlock x:Name="tbStats" Margin="0,2,0,0" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
               <TextBlock x:Name="tbEnc" Margin="0,2,0,0" FontWeight="SemiBold"/>
               <TextBlock x:Name="tbSecWarn" Margin="0,6,0,0" Foreground="{StaticResource WarnBrush}" TextWrapping="Wrap"/>
               <TextBlock x:Name="tbError" Margin="0,6,0,0" Foreground="{StaticResource ErrBrush}" TextWrapping="Wrap"/>

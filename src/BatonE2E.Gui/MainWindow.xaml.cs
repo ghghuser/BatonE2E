@@ -122,7 +122,7 @@ public partial class MainWindow : Window
     {
         if (_engine != null)
         {
-            if (MessageBox.Show(Loc.Get("gui.confirm.close"), AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (!ConfirmDialog.Ask(this, Loc.Get("gui.confirm.close"), AppInfo.Name, false))
             {
                 e.Cancel = true;
                 return;
@@ -343,6 +343,7 @@ public partial class MainWindow : Window
         var eng = _engine;
         _engine = null;
         if (eng != null) eng.Stats.ViewerJoined -= OnViewerJoined;
+        if (eng != null) AppLog.Info(Loc.Get("gui.log.summary", eng.Stats.PeakViewers, eng.Stats.TotalViewers));
         if (eng != null) await eng.DisposeAsync();
         AppLog.Info(Loc.Get("gui.log.stopped"));
         ShowStoppedValues();
@@ -374,7 +375,7 @@ public partial class MainWindow : Window
         tbState.Text = Loc.Get(live ? "gui.state.live" : "gui.state.running");
         tbState.Foreground = live ? _okBrush : _textBrush;
         tbSource.Text = live ? Loc.Get("gui.src.active", st.SourceMime) : Loc.Get("gui.src.waiting");
-        tbStats.Text = Loc.Get("gui.stat.viewers", eng.Hub?.ViewerCount ?? 0) + "    "
+        tbStats.Text = Loc.Get("gui.stat.viewers.full", eng.Hub?.ViewerCount ?? 0, st.PeakViewers, st.TotalViewers) + "    "
                        + Loc.Get("gui.stat.bytes", st.BytesIn / 1024) + "    "
                        + Loc.Get("gui.stat.frames", st.Frames);
         if (st.CheckNg > 0) { tbEnc.Text = Loc.Get("gui.enc.ng", st.CheckNg); tbEnc.Foreground = _errBrush; }

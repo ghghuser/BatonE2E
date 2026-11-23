@@ -131,7 +131,7 @@ internal sealed class ViewerServer : IAsyncDisposable
         }
         using var ws = await ctx.WebSockets.AcceptWebSocketAsync();
         AppLog.Info(Loc.Get("log.viewer.connect", remote, _hub.ViewerCount));
-        _hub.Stats.RaiseViewerJoined(remote);
+        _hub.Stats.RaiseViewerJoined(remote, _hub.ViewerCount);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
         var recv = Task.Run(() => DrainIncomingAsync(ws, cts));
         try

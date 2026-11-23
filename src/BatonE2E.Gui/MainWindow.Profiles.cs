@@ -33,8 +33,7 @@ public partial class MainWindow
         try
         {
             if (ProfileStore.Exists(App.ConfigPath, name)
-                && MessageBox.Show(this, Loc.Get("gui.profile.confirm.overwrite", name), Loc.Get("gui.profile.title"),
-                    MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+                && !ConfirmDialog.Ask(this, Loc.Get("gui.profile.confirm.overwrite", name), Loc.Get("gui.profile.title"), false))
             {
                 SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
                 return;
@@ -71,8 +70,7 @@ public partial class MainWindow
         var nameIssue = ProfileStore.CheckName(name);
         if (nameIssue != null) { ProfileError(nameIssue.Key, nameIssue.Args); return; }
         if (!ProfileStore.Exists(App.ConfigPath, name)) { ProfileError("gui.profile.err.none", name); return; }
-        if (MessageBox.Show(this, Loc.Get("gui.profile.confirm.delete", name), Loc.Get("gui.profile.title"),
-                MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+        if (!ConfirmDialog.Ask(this, Loc.Get("gui.profile.confirm.delete", name), Loc.Get("gui.profile.title"), false))
         {
             SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
             return;

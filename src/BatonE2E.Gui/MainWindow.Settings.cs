@@ -418,7 +418,7 @@ public partial class MainWindow
         if (added.Count > 0)
         {
             var text = Loc.Get("gui.sec.confirm", string.Join("\n", added.Select(w => "・" + Loc.Get(w))));
-            if (MessageBox.Show(this, text, Loc.Get("gui.sec.title"), MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+            if (!ConfirmDialog.Ask(this, text, Loc.Get("gui.sec.title"), true))
             {
                 SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
                 return;
