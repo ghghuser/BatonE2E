@@ -48,6 +48,10 @@ internal static class ConfigTests
             T.Check("ミラー設定: 上流URLが空・不正なら保存不可", new AppSettings { Mode = "mirror" }.Check()?.Key == "gui.err.upstream"
                 && new AppSettings { Mode = "mirror", UpstreamUrl = "ftp://x" }.Check()?.Field == "UpstreamUrl");
             T.Check("ミラー設定: 自分自身を指すURLは保存不可", new AppSettings { Mode = "mirror", UpstreamUrl = "http://127.0.0.1:8080/", ViewPort = 8080 }.Check()?.Key == "gui.err.upstreamself");
+            T.Check("言語: 既定はsystem、不正な値もsystemに戻る。ja/enはそのまま", new AppSettings().Language == "system" && Norm("fr") == "system" && Norm("ja") == "ja" && Norm("en") == "en");
+            T.Check("言語: systemはOSの言語が日本語ならja、それ以外はen", BatonE2E.Core.Loc.Resolve("system", "ja") == "ja" && BatonE2E.Core.Loc.Resolve("system", "JA") == "ja"
+                && BatonE2E.Core.Loc.Resolve("system", "en") == "en" && BatonE2E.Core.Loc.Resolve("system", "fr") == "en" && BatonE2E.Core.Loc.Resolve("ja", "en") == "ja" && BatonE2E.Core.Loc.Resolve("en", "ja") == "en");
+            T.Check("ミラー設定: ミラー番号は1〜99に収まる", Num(0) == 1 && Num(5) == 5 && Num(500) == 99);
             T.Check("ミラー設定: 通常モードではURLが空でも問題なし・不正なモード名は通常に戻る",
                 new AppSettings { UpstreamUrl = "" }.Check() == null && new AppSettings { Mode = "???" }.IsMirror == false);
             var mo = mir.ToEngineOptions();
@@ -83,4 +87,7 @@ internal static class ConfigTests
         }
         finally { try { Directory.Delete(dir, true); } catch (IOException) { } }
     }
+
+    private static string Norm(string lang) { var s = new AppSettings { Language = lang }; s.Normalize(); return s.Language; }
+    private static int Num(int n) { var s = new AppSettings { MirrorNumber = n }; s.Normalize(); return s.MirrorNumber; }
 }

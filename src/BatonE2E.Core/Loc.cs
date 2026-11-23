@@ -11,6 +11,14 @@ public static class Loc
 
     public static IReadOnlyDictionary<string, string> Map => _map;
 
+    /// <summary>設定値（system / ja / en）を、実際に使う言語（ja / en）へ。system はOSの表示言語が日本語なら ja、それ以外は en。</summary>
+    public static string Resolve(string? setting, string? osLanguage = null)
+    {
+        if (setting == "ja" || setting == "en") return setting;
+        var os = osLanguage ?? System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        return string.Equals(os, "ja", StringComparison.OrdinalIgnoreCase) ? "ja" : "en";
+    }
+
     public static void Load(string langDir, string language)
     {
         Language = language;

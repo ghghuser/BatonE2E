@@ -38,6 +38,10 @@ public sealed class RelayEngine : IAsyncDisposable
             {
                 // ミラー: 鍵を持たず、暗号文のまま中継する。視聴者は元と同じパスワードで復号する
                 Hub = StreamHub.CreateMirror(_o.MaxViewers, Stats);
+                // 題名は「元の題名(鏡N)」。元から取れなければ設定の題名を使う
+                var pageUri = MirrorUrl.ToPageUri(_o.UpstreamUrl);
+                var baseTitle = pageUri == null ? null : await MirrorUrl.FetchTitleAsync(pageUri, CancellationToken.None);
+                _o.PageTitle = (baseTitle ?? _o.PageTitle) + "(" + Loc.Get("gui.mirror.suffix", _o.MirrorNumber) + ")";
                 _viewer = await ViewerServer.StartAsync(_o, Hub);
                 var uri = MirrorUrl.ToWebSocketUri(_o.UpstreamUrl)!;
                 _upstream = new UpstreamClient(uri, Hub, Stats, TimeSpan.FromMilliseconds(Math.Clamp(_o.UpstreamRetryMs, 50, 60_000)));

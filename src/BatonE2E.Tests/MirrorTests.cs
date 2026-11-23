@@ -27,13 +27,24 @@ internal static class MirrorTests
         T.Check("ミラーURL: ws/wssもそのまま使える", W("wss://h.example/p") == "wss://h.example/p/ws" && W("ws://10.0.0.5:9/") == "ws://10.0.0.5:9/ws");
         T.Check("ミラーURL: 不正な指定は拒否", new[] { null, "", "  ", "ftp://x/", "not a url", "https://user:pw@h/", "file:///c:/x", "//h/x" }.All(s => W(s) == null));
         var self = MirrorUrl.ToWebSocketUri("http://127.0.0.1:8080/live")!;
-        T.Check("ミラーURL: 自分自身（同じ視聴ポート・パス）は検出する", MirrorUrl.IsSelf(self, 8080, "/live") && MirrorUrl.IsSelf(MirrorUrl.ToWebSocketUri("http://localhost:8080/")!, 8080, "/"));
-        T.Check("ミラーURL: ポート・パスが違えば自分自身ではない", !MirrorUrl.IsSelf(self, 8081, "/live") && !MirrorUrl.IsSelf(self, 8080, "/other")
-            && !MirrorUrl.IsSelf(MirrorUrl.ToWebSocketUri("https://a.ts.net:8080/live")!, 8080, "/live"));
+        T.Check("ミラーURL: このPCの自分の視聴ポートを指していれば自分自身", MirrorUrl.IsSelf(self, 8080) && MirrorUrl.IsSelf(MirrorUrl.ToWebSocketUri("http://localhost:8080/")!, 8080));
+        T.Check("ミラーURL: ポートが違う・他のホストなら自分自身ではない", !MirrorUrl.IsSelf(self, 8081)
+            && !MirrorUrl.IsSelf(MirrorUrl.ToWebSocketUri("https://a.ts.net:8080/live")!, 8080));
+        T.Check("ミラーパス: 上流のパス+_mirror-番号", MirrorUrl.MirrorViewPath("https://a.ts.net/live-abc", 1) == "/live-abc_mirror-1"
+            && MirrorUrl.MirrorViewPath("https://a.ts.net/live-abc/", 2) == "/live-abc_mirror-2" && MirrorUrl.MirrorViewPath("https://a.ts.net/a/b", 12) == "/a/b_mirror-12");
+        T.Check("ミラーパス: 上流がルートや不正でも /_mirror-番号、番号は1〜99に収める", MirrorUrl.MirrorViewPath("http://h:1/", 1) == "/_mirror-1"
+            && MirrorUrl.MirrorViewPath("", 3) == "/_mirror-3" && MirrorUrl.MirrorViewPath("https://h/x", 0) == "/x_mirror-1" && MirrorUrl.MirrorViewPath("https://h/x", 500) == "/x_mirror-99");
+        T.Check("ミラーURL: 題名取得用の視聴ページURL", MirrorUrl.ToPageUri("wss://a.ts.net/p")!.AbsoluteUri == "https://a.ts.net/p"
+            && MirrorUrl.ToPageUri("http://127.0.0.1:8080/")!.AbsoluteUri == "http://127.0.0.1:8080/" && MirrorUrl.ToPageUri("ftp://x") == null);
+        T.Check("題名の取り出し: 実体参照を戻し、前後の空白を除く", MirrorUrl.ParseTitle("<html><head><TITLE> A &amp; B </TITLE>") == "A & B"
+            && MirrorUrl.ParseTitle("<p>no title</p>") == null && MirrorUrl.ParseTitle("<title> </title>") == null && MirrorUrl.ParseTitle("<title>" + new string('あ', 300) + "</title>")!.Length == 100);
 
         T.Check("ミラー設定: 配信ソフト用のパスワードなしでも検査を通る", Throws(() => new EngineOptions { UpstreamUrl = "https://a.ts.net/x", ViewPort = 9000 }.Validate()) == null);
         T.Check("ミラー設定: 不正なURLは拒否", Throws(() => new EngineOptions { UpstreamUrl = "ftp://x" }.Validate()) == "bad-upstream-url");
         T.Check("ミラー設定: 自分自身を指すURLは拒否", Throws(() => new EngineOptions { UpstreamUrl = "http://127.0.0.1:9000/", ViewPort = 9000 }.Validate()) == "upstream-is-self");
+        var vo = new EngineOptions { UpstreamUrl = "https://a.ts.net/live-abc", ViewPort = 9000, ViewPath = "/free-choice", MirrorNumber = 2 };
+        vo.Validate();
+        T.Check("ミラー設定: 視聴パスは設定にかかわらず 上流のパス+_mirror-番号 に固定", vo.ViewPath == "/live-abc_mirror-2");
         T.Check("ミラー設定: 通常モードは従来どおりパスワードが必須", Throws(() => new EngineOptions().Validate()) == "empty-source-password");
     }
 
@@ -113,9 +124,11 @@ internal static class MirrorTests
         var o = new RelayEngine(o1);
         await o.StartAsync();
 
+        var custom = Path.Combine(Path.GetTempPath(), "baton-mir-page-" + Guid.NewGuid().ToString("N") + ".html");
+        File.WriteAllText(custom, "<html><title>{{TITLE}}</title>CUSTOM-PAGE-MARK</html>");
         var mo = new EngineOptions
         {
-            ViewPort = FreePort(), UpstreamUrl = $"http://127.0.0.1:{o1.ViewPort}/", MaxViewers = 5, UpstreamRetryMs = 200,
+            ViewPort = FreePort(), UpstreamUrl = $"http://127.0.0.1:{o1.ViewPort}/", MaxViewers = 5, UpstreamRetryMs = 200, ViewerPageFile = custom,
             Access = new AccessOptions { RateMaxRequests = 0, MaxConnPerClient = 0 },
         };
         await using var m = new RelayEngine(mo);
@@ -123,16 +136,26 @@ internal static class MirrorTests
         await WaitAsync(() => m.Hub!.Ready);
         T.Check("ミラー結合: 上流に接続して視聴を受け付ける", m.Hub!.Ready && m.Stats.Upstream == UpstreamStatus.Connected && m.Stats.Mirror);
 
+        using var http = new HttpClient();
+        var mpage = await http.GetStringAsync($"http://127.0.0.1:{mo.ViewPort}{mo.ViewPath}");
+        T.Check("ミラー結合: 視聴ページのパスは 上流のパス+_mirror-番号", mo.ViewPath == "/_mirror-1" && mpage.Contains("E2ERADIO1"));
+        T.Check("ミラー結合: 題名は「元の題名(鏡N)」", mpage.Contains("<title>ライブ配信(" + BatonE2E.Core.Loc.Get("gui.mirror.suffix", 1) + ")</title>"));
+        T.Check("ミラー結合: ミラーでは視聴ページの差し替えを受け付けない", !mpage.Contains("CUSTOM-PAGE-MARK"));
+        var other = await http.GetAsync($"http://127.0.0.1:{mo.ViewPort}/");
+        T.Check("ミラー結合: 決められたパス以外は404", other.StatusCode == System.Net.HttpStatusCode.NotFound);
+        var opage = await http.GetStringAsync($"http://127.0.0.1:{o1.ViewPort}/");
+        T.Check("ミラー結合: 元（通常モード）の題名はそのまま", opage.Contains("<title>ライブ配信</title>"));
+
         var rnd = new Random(11);
         byte[] Data(int n) { var b = new byte[n]; rnd.NextBytes(b); return b; }
 
         var v = new Viewer();
-        _ = Task.Run(() => v.RunAsync(mo.ViewPort, pw1));
+        _ = Task.Run(() => v.RunAsync(mo.ViewPort, mo.ViewPath, pw1));
         await WaitAsync(() => v.PasswordOk);
         T.Check("ミラー結合: ミラーに繋いでも、元のパスワードで確認ブロックが検証できる", v.PasswordOk);
 
         var bad = new Viewer();
-        _ = Task.Run(() => bad.RunAsync(mo.ViewPort, "wrong-passphrase-000000"));
+        _ = Task.Run(() => bad.RunAsync(mo.ViewPort, mo.ViewPath, "wrong-passphrase-000000"));
         await WaitAsync(() => bad.HeaderJson.Length > 0);
 
         var d1 = Data(30_000);
@@ -157,7 +180,7 @@ internal static class MirrorTests
         await WaitAsync(() => m.Stats.Upstream == UpstreamStatus.Connected, 10_000);
 
         var v2 = new Viewer();
-        _ = Task.Run(() => v2.RunAsync(mo.ViewPort, pw2));
+        _ = Task.Run(() => v2.RunAsync(mo.ViewPort, mo.ViewPath, pw2));
         await WaitAsync(() => v2.PasswordOk);
         var d2 = Data(20_000);
         await PutAsync(o2o, d2);
@@ -166,5 +189,6 @@ internal static class MirrorTests
 
         try { await v2.Ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None); } catch (WebSocketException) { }
         foreach (var d in new[] { o1.CertDir, o2o.CertDir }) try { Directory.Delete(d!, true); } catch (IOException) { }
+        try { File.Delete(custom); } catch (IOException) { }
     }
 }

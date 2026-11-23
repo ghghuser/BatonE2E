@@ -8,12 +8,15 @@ namespace BatonE2E.Core.Config;
 /// <summary>設定（config.json）。GUI・将来のコンソール版で共通。パスワードが空なら起動ごとに自動生成。</summary>
 public sealed class AppSettings
 {
-    public string Language { get; set; } = "ja";
+    /// <summary>system（OSの言語に合わせる。日本語以外は英語）／ja／en。</summary>
+    public string Language { get; set; } = "system";
     /// <summary>relay=配信ソフトから受けて中継する（通常）／mirror=別のBatonE2Eから暗号文のまま受けて中継する。</summary>
     public string Mode { get; set; } = "relay";
     /// <summary>ミラーの上流（元のBatonE2Eの視聴ページのURL）。</summary>
     public string UpstreamUrl { get; set; } = "";
     public bool IsMirror => Mode == "mirror";
+    /// <summary>同じ元に複数のミラーを置くときの番号（1〜99）。</summary>
+    public int MirrorNumber { get; set; } = 1;
     public int SourcePort { get; set; } = 8000;
     /// <summary>sourceの待ち受けアドレス。127.0.0.1以外は外部公開（TLS必須・強いパスワード必須）。</summary>
     public string SourceBind { get; set; } = "127.0.0.1";
@@ -68,8 +71,9 @@ public sealed class AppSettings
     /// <summary>範囲外・不正な値を安全な値へ直す。</summary>
     public void Normalize()
     {
-        if (Language != "ja" && Language != "en") Language = "ja";
+        if (Language != "ja" && Language != "en") Language = "system";
         Mode = Mode == "mirror" ? "mirror" : "relay";
+        MirrorNumber = Math.Clamp(MirrorNumber, 1, 99);
         UpstreamUrl = (UpstreamUrl ?? "").Trim();
         if (UpstreamUrl.Length > 2048) UpstreamUrl = "";
         if (SourcePort is < 1 or > 65535) SourcePort = 8000;
@@ -109,7 +113,7 @@ public sealed class AppSettings
             // ミラーは配信ソフトの受け口もパスワードも使わない（視聴者は元と同じパスワードで復号する）
             var up = MirrorUrl.ToWebSocketUri(UpstreamUrl);
             if (up == null) return Mk("gui.err.upstream", "UpstreamUrl");
-            if (MirrorUrl.IsSelf(up, ViewPort, ViewPath)) return Mk("gui.err.upstreamself", "UpstreamUrl");
+            if (MirrorUrl.IsSelf(up, ViewPort)) return Mk("gui.err.upstreamself", "UpstreamUrl");
         }
         else
         {
@@ -251,6 +255,7 @@ public sealed class AppSettings
             AcceptAnySourceUser = AcceptAnySourceUser,
             SourceTls = Enum.Parse<SourceTlsMode>(SourceTls, true),
             UpstreamUrl = IsMirror ? UpstreamUrl : "",
+            MirrorNumber = MirrorNumber,
             SourcePassword = IsMirror ? "" : SourcePassword.Length > 0 ? SourcePassword : PassphraseGenerator.Generate(4, 4),
             ViewPassword = IsMirror ? "" : ViewPassword.Length > 0 ? ViewPassword : PassphraseGenerator.Generate(),
         };

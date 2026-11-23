@@ -22,9 +22,12 @@ internal static class IntegrationTests
         public readonly ClientWebSocket Ws = new();
         public readonly object Gate = new();
 
-        public async Task RunAsync(int port, string password)
+        public Task RunAsync(int port, string password) => RunAsync(port, "", password);
+
+        /// <summary>viewPath は視聴ページのパス（ルートなら空）。WebSocketは「パス/ws」。</summary>
+        public async Task RunAsync(int port, string viewPath, string password)
         {
-            await Ws.ConnectAsync(new Uri($"ws://127.0.0.1:{port}/ws"), CancellationToken.None);
+            await Ws.ConnectAsync(new Uri($"ws://127.0.0.1:{port}{viewPath}/ws"), CancellationToken.None);
             var buf = new byte[65536];
             FrameDecryptor? dec = null;
             var first = true;

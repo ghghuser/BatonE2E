@@ -17,7 +17,7 @@ public partial class App : Application
         DispatcherUnhandledException += OnUnhandled;
 
         var settings = AppSettings.Load(ConfigPath, out var corrupted);
-        Loc.Load(Path.Combine(AppContext.BaseDirectory, "Lang"), settings.Language);
+        Loc.Load(Path.Combine(AppContext.BaseDirectory, "Lang"), Loc.Resolve(settings.Language));
         AppLog.ToConsole = false;
         AppLog.FilePath = settings.LogToFile ? Path.Combine(AppContext.BaseDirectory, "BatonE2E.log") : null;
 

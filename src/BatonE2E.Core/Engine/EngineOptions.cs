@@ -39,6 +39,8 @@ public sealed class EngineOptions
     /// <summary>ミラー: 元のBatonE2Eの視聴ページのURL。指定するとミラーとして動く（配信ソフトの受け口・パスワードは使わない）。</summary>
     public string UpstreamUrl { get; set; } = "";
     public bool IsMirror => !string.IsNullOrWhiteSpace(UpstreamUrl);
+    /// <summary>同じ元に対して複数のミラーを置くときの番号（1〜99）。視聴パス（上流のパス+_mirror-番号）と題名（(鏡番号)）に付く。</summary>
+    public int MirrorNumber { get; set; } = 1;
     /// <summary>ミラーが上流へ再接続するときの最初の待ち時間（以後は倍々、最大60秒）。</summary>
     public int UpstreamRetryMs { get; set; } = 2000;
 
@@ -67,7 +69,10 @@ public sealed class EngineOptions
         if (IsMirror)
         {
             var up = MirrorUrl.ToWebSocketUri(UpstreamUrl) ?? throw new E2eCryptoException("bad-upstream-url");
-            if (MirrorUrl.IsSelf(up, ViewPort, ViewPath)) throw new E2eCryptoException("upstream-is-self");
+            if (MirrorUrl.IsSelf(up, ViewPort)) throw new E2eCryptoException("upstream-is-self");
+            // ミラーの視聴パスは利用者が決められない（どの配信のミラーかがURLで分かり、元のURLと取り違えない）
+            MirrorNumber = Math.Clamp(MirrorNumber, 1, 99);
+            ViewPath = MirrorUrl.MirrorViewPath(UpstreamUrl, MirrorNumber);
         }
         else
         {

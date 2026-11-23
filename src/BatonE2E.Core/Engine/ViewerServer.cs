@@ -92,6 +92,8 @@ internal sealed class ViewerServer : IAsyncDisposable
 
     private string LoadPage()
     {
+        // ミラーは標準の視聴ページだけを配信する（viewer.html / viewer.css による差し替えを受け付けない）
+        if (_o.IsMirror) return _embedded ??= ViewerTemplate.ReadEmbedded();
         var file = _o.ViewerPageFile ?? ViewerTemplate.FindFile("viewer.html");
         var html = file != null && File.Exists(file) ? File.ReadAllText(file, Encoding.UTF8) : (_embedded ??= ViewerTemplate.ReadEmbedded());
         // viewer.css（viewerフォルダ）があれば、ページの<head>末尾へ差し込む（CSPの都合で外部ファイルではなく埋め込み）
