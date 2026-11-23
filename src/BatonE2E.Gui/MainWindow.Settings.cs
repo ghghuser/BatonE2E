@@ -20,7 +20,12 @@ public partial class MainWindow
     private TextBox tbSrcBind = null!, tbSrcPort = null!, tbViewPort = null!, tbViewPath = null!, tbMount = null!, tbPageTitle = null!,
         tbMaxViewers = null!, tbSrcPass = null!, tbViewPass = null!, tbConnLimit = null!, tbRateWin = null!, tbRateMax = null!,
         tbRateBan = null!, tbDeny = null!;
-    private RadioButton rbLangJa = null!, rbLangEn = null!, rbTlsAuto = null!, rbTlsOn = null!, rbTlsOff = null!;
+    private RadioButton rbTlsAuto = null!, rbTlsOn = null!, rbTlsOff = null!;
+    private ComboBox cbLang = null!;
+    private TextBox tbMirrorNo = null!, tbViewPort2 = null!, tbMaxViewers2 = null!;
+    private TextBlock tbMirrorPreview = null!;
+    private Grid _g = null!;        // いま項目を追加している先のフォーム（中継 / 鏡 / 設定）
+    private int _curTab;            // その番号（1=中継 2=鏡 3=設定）
     private CheckBox chkAnyUser = null!, chkProxy = null!, chkLogFile = null!, chkTray = null!;
     private TextBox tbSound = null!, tbUpstream = null!;
     private RadioButton rbModeRelay = null!, rbModeMirror = null!;
@@ -29,31 +34,28 @@ public partial class MainWindow
     private ListBox lbProfiles = null!;
     private System.Windows.Controls.Primitives.Popup popProfiles = null!;
     private DateTime _profilePopupClosedAt = DateTime.MinValue;
-    private int _setRow;
     private bool _loading;
-    private readonly Dictionary<string, Control[]> _fields = new();
+    /// <summary>項目名 → 赤枠をつける入力欄（連動する欄は複数）。</summary>
+    private readonly Dictionary<string, List<Control>> _fields = new();
+    /// <summary>項目名 → その項目があるタブ（問題が起きたとき、そのタブへ切り替える）。</summary>
+    private readonly Dictionary<string, List<int>> _fieldTabs = new();
 
     // ---------- 組み立て ----------
 
+    private void UseForm(Grid g, int tab) { _g = g; _curTab = tab; }
+
     private void BuildSettingsForm()
     {
-        gSet.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        gSet.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        foreach (var g in new[] { gSet, gMirror, gSys })
+        {
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        }
 
         ProfileHeader();
 
-        Group("gui.grp.basic");
-        rbLangJa = Choice("日本語", "lang");
-        rbLangEn = Choice("English", "lang");
-        Row("gui.set.language", HPanel(rbLangJa, rbLangEn), "gui.tip.language");
-        rbModeRelay = Choice(Loc.Get("gui.mode.relay"), "mode");
-        rbModeMirror = Choice(Loc.Get("gui.mode.mirror"), "mode");
-        rbModeRelay.Checked += (_, _) => ApplyModeEnabled();
-        rbModeMirror.Checked += (_, _) => ApplyModeEnabled();
-        Row("gui.set.mode", HPanel(rbModeRelay, rbModeMirror), "gui.tip.mode", "Mode");
-        tbUpstream = Txt(420);
-        Row("gui.set.upstream", tbUpstream, "gui.tip.upstream", "UpstreamUrl");
-
+        // ===== 中継タブ（配信ソフトから受けて中継する設定） =====
+        UseForm(gSet, 1);
         Group("gui.grp.net");
         tbSrcBind = Txt(200);
         Row("gui.set.srcbind", tbSrcBind, "gui.tip.srcbind", "SourceBind", EngineOptions.MinExternalSourcePasswordLength);
@@ -106,11 +108,50 @@ public partial class MainWindow
         tbDeny.FontFamily = new FontFamily("Consolas, MS Gothic");
         Row("gui.set.deny", tbDeny, "gui.tip.deny", "DenyRules");
 
-        Group("gui.grp.other");
+        // ===== 鏡タブ（別のBatonE2Eから受けて中継する設定） =====
+        UseForm(gMirror, 2);
+        Group("gui.grp.mirror");
+        rbModeRelay = Choice(Loc.Get("gui.mode.relay"), "mode");
+        rbModeMirror = Choice(Loc.Get("gui.mode.mirror"), "mode");
+        rbModeRelay.Checked += (_, _) => ApplyModeEnabled();
+        rbModeMirror.Checked += (_, _) => ApplyModeEnabled();
+        Row("gui.set.mode", HPanel(rbModeRelay, rbModeMirror), "gui.tip.mode", "Mode");
+        tbUpstream = Txt(420);
+        Row("gui.set.upstream", tbUpstream, "gui.tip.upstream", "UpstreamUrl");
+        tbMirrorNo = Txt(60);
+        Row("gui.set.mirrorno", tbMirrorNo, "gui.tip.mirrorno", "MirrorNumber");
+        tbMirrorPreview = new TextBlock { TextWrapping = TextWrapping.Wrap, MaxWidth = 440, Foreground = (Brush)FindResource("MutedBrush"), VerticalAlignment = VerticalAlignment.Center };
+        Row("gui.set.mirrorpath", tbMirrorPreview, "gui.tip.mirrorpath");
+        tbUpstream.TextChanged += (_, _) => UpdateMirrorPreview();
+        tbMirrorNo.TextChanged += (_, _) => UpdateMirrorPreview();
+
+        // 「中継」タブと共通の項目は、同じ値を連動して表示する（どちらで変えても両方が変わる）
+        Group("gui.grp.mirrorshared");
+        tbViewPort2 = Txt(100);
+        LinkText(tbViewPort, tbViewPort2);
+        Row("gui.set.viewport", tbViewPort2, "gui.tip.viewport", "ViewPort");
+        tbMaxViewers2 = Txt(100);
+        LinkText(tbMaxViewers, tbMaxViewers2);
+        Row("gui.set.maxviewers", tbMaxViewers2, "gui.tip.maxviewers", "MaxViewers");
+        Note("gui.mirror.sharednote");
+
+        // ===== 設定タブ（このPC・このアプリの設定。プロファイルには含めない） =====
+        UseForm(gSys, 3);
+        Group("gui.grp.lang");
+        cbLang = new ComboBox { Width = 260 };
+        cbLang.Items.Add(Loc.Get("gui.lang.system"));
+        cbLang.Items.Add("日本語");
+        cbLang.Items.Add("English");
+        cbLang.SelectionChanged += (_, _) => UpdateDirty();
+        Row("gui.set.language", cbLang, "gui.tip.language");
+
+        Group("gui.grp.system");
         chkLogFile = Check(Loc.Get("gui.set.logfile"));
         Row("", chkLogFile, "gui.tip.logfile");
         chkTray = Check(Loc.Get("gui.set.tray"));
         Row("", chkTray, "gui.tip.tray");
+
+        Group("gui.grp.notify");
         tbSound = Txt(300);
         var btnBrowse = new Button { Content = Loc.Get("gui.sound.browse"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
         btnBrowse.Click += (_, _) => OnBrowseSound();
@@ -130,10 +171,40 @@ public partial class MainWindow
         btnTemplate.Click += OnTemplate;
     }
 
-    /// <summary>見出し（青文字）と同じ1行に、名前の入力欄（▼で一覧）・ボタン・ⓘを置く。</summary>
+    /// <summary>2つの入力欄の文字を連動させる（どちらを変えても、もう一方が同じになる）。</summary>
+    private static void LinkText(TextBox a, TextBox b)
+    {
+        a.TextChanged += (_, _) => { if (b.Text != a.Text) b.Text = a.Text; };
+        b.TextChanged += (_, _) => { if (a.Text != b.Text) a.Text = b.Text; };
+    }
+
+    /// <summary>ミラーの視聴ページのパスと題名（自動で決まる）の見本を出す。</summary>
+    private void UpdateMirrorPreview()
+    {
+        if (tbMirrorPreview == null || tbUpstream == null || tbMirrorNo == null) return;
+        if (MirrorUrl.ToWebSocketUri(tbUpstream.Text) == null) { tbMirrorPreview.Text = "—"; return; }
+        var n = int.TryParse(tbMirrorNo.Text.Trim(), out var v) ? Math.Clamp(v, 1, 99) : 1;
+        tbMirrorPreview.Text = Loc.Get("gui.mirror.preview", MirrorUrl.MirrorViewPath(tbUpstream.Text, n), Loc.Get("gui.mirror.suffix", n));
+    }
+
+    private void SelectTab(int i) => (i switch { 1 => rbRelay, 2 => rbMirror, 3 => rbSystem, _ => rbMain }).IsChecked = true;
+
+    private void Note(string key)
+    {
+        _g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var t = new TextBlock
+        {
+            Text = Loc.Get(key), TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("MutedBrush"),
+            Margin = new Thickness(0, 10, 0, 0), MaxWidth = 600, HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        Grid.SetRow(t, _g.RowDefinitions.Count - 1);
+        Grid.SetColumnSpan(t, 2);
+        _g.Children.Add(t);
+    }
+
+    /// <summary>プロファイルの欄。中継・鏡タブの上の共通の帯に、見出し（青文字）と同じ1行で、名前の入力欄（▼で一覧）・ボタン・ⓘを置く。</summary>
     private void ProfileHeader()
     {
-        gSet.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(new TextBlock
         {
@@ -179,16 +250,8 @@ public partial class MainWindow
         row.Children.Add(btnProfileLoad);
         row.Children.Add(btnProfileDelete);
         row.Children.Add(Info("gui.tip.profile", Array.Empty<object>()));
-        _fields["Profile"] = new Control[] { tbProfileName };
-
-        var b = new Border
-        {
-            BorderBrush = (Brush)FindResource("LineBrush"), BorderThickness = new Thickness(0, 0, 0, 1),
-            Margin = new Thickness(0, 0, 0, 4), Padding = new Thickness(0, 0, 0, 6), Child = row,
-        };
-        Grid.SetRow(b, _setRow++);
-        Grid.SetColumnSpan(b, 2);
-        gSet.Children.Add(b);
+        _fields["Profile"] = new List<Control> { tbProfileName };
+        profileBar.Child = row;
         RefreshProfiles();
     }
 
@@ -201,41 +264,47 @@ public partial class MainWindow
 
     private void Group(string key)
     {
-        gSet.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        _g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var b = new Border
         {
             BorderBrush = (Brush)FindResource("LineBrush"), BorderThickness = new Thickness(0, 0, 0, 1),
-            Margin = new Thickness(0, _setRow == 0 ? 0 : 10, 0, 2), Padding = new Thickness(0, 0, 0, 4),
+            Margin = new Thickness(0, _g.RowDefinitions.Count == 1 ? 0 : 10, 0, 2), Padding = new Thickness(0, 0, 0, 4),
             Child = new TextBlock { Text = Loc.Get(key), FontWeight = FontWeights.SemiBold, Foreground = (Brush)FindResource("AccentHoverBrush") },
         };
-        Grid.SetRow(b, _setRow++);
+        Grid.SetRow(b, _g.RowDefinitions.Count - 1);
         Grid.SetColumnSpan(b, 2);
-        gSet.Children.Add(b);
+        _g.Children.Add(b);
     }
 
     /// <summary>見出し（右寄せ）：入力欄（左揃えで頭をそろえる）＋ⓘ。</summary>
     private void Row(string labelKey, FrameworkElement input, string? tipKey, string? field = null, params object[] tipArgs)
     {
-        gSet.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var r = _setRow++;
+        _g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var r = _g.RowDefinitions.Count - 1;
         var lbl = new TextBlock
         {
             Text = labelKey.Length > 0 ? Loc.Get(labelKey) : "", TextAlignment = TextAlignment.Right, TextWrapping = TextWrapping.Wrap,
             HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 4, 2),
         };
         Grid.SetRow(lbl, r);
-        gSet.Children.Add(lbl);
+        _g.Children.Add(lbl);
         var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
         sp.Children.Add(input);
         if (tipKey != null) sp.Children.Add(Info(tipKey, tipArgs));
         Grid.SetRow(sp, r);
         Grid.SetColumn(sp, 1);
-        gSet.Children.Add(sp);
+        _g.Children.Add(sp);
         if (field != null)
         {
             var marks = new List<Control>();
             Collect(input, marks);
-            foreach (var f in field.Split(',')) _fields[f] = marks.ToArray();
+            foreach (var f in field.Split(','))
+            {
+                if (!_fields.TryGetValue(f, out var list)) _fields[f] = list = new List<Control>();
+                list.AddRange(marks);
+                if (!_fieldTabs.TryGetValue(f, out var tabs)) _fieldTabs[f] = tabs = new List<int>();
+                tabs.Add(_curTab);
+            }
         }
     }
 
@@ -294,8 +363,8 @@ public partial class MainWindow
     private void LoadUi(AppSettings s)
     {
         _loading = true;
-        rbLangJa.IsChecked = s.Language == "ja";
-        rbLangEn.IsChecked = s.Language == "en";
+        cbLang.SelectedIndex = s.Language switch { "ja" => 1, "en" => 2, _ => 0 };
+        tbMirrorNo.Text = s.MirrorNumber.ToString();
         rbModeRelay.IsChecked = s.Mode != "mirror";
         rbModeMirror.IsChecked = s.Mode == "mirror";
         tbUpstream.Text = s.UpstreamUrl;
@@ -320,6 +389,7 @@ public partial class MainWindow
         tbDeny.Text = s.DenyRules.Replace("\r", "").Replace("\n", "\r\n");
         chkLogFile.IsChecked = s.LogToFile;
         ApplyModeEnabled();
+        UpdateMirrorPreview();
         chkTray.IsChecked = s.MinimizeToTray;
         tbSound.Text = s.NotifySound;
         _loading = false;
@@ -338,7 +408,8 @@ public partial class MainWindow
         }
         var s = new AppSettings
         {
-            Language = rbLangEn.IsChecked == true ? "en" : "ja",
+            Language = cbLang.SelectedIndex switch { 1 => "ja", 2 => "en", _ => "system" },
+            MirrorNumber = Num(tbMirrorNo, "MirrorNumber", "gui.set.mirrorno", 1, 99),
             Mode = rbModeMirror.IsChecked == true ? "mirror" : "relay",
             UpstreamUrl = tbUpstream.Text,
             SourceBind = tbSrcBind.Text,
@@ -370,10 +441,12 @@ public partial class MainWindow
     /// <summary>モードに合わない入力欄を灰色にする（ミラーは配信ソフトの受け口・パスワードを使わない）。</summary>
     private void ApplyModeEnabled()
     {
-        if (tbUpstream == null || chkAnyUser == null) return;
+        if (tbUpstream == null || tbMirrorNo == null || chkAnyUser == null) return;
         var mirror = rbModeMirror.IsChecked == true;
         tbUpstream.IsEnabled = mirror;
-        foreach (var c in new Control[] { tbSrcBind, tbSrcPort, tbMount, tbSrcPass, btnGenSrc, tbViewPass, btnGenView, rbTlsAuto, rbTlsOn, rbTlsOff, chkAnyUser })
+        tbMirrorNo.IsEnabled = mirror;
+        // ミラーでは視聴ページのパス・題名は自動で決まるので、これらも使わない
+        foreach (var c in new Control[] { tbSrcBind, tbSrcPort, tbMount, tbSrcPass, btnGenSrc, tbViewPass, btnGenView, rbTlsAuto, rbTlsOn, rbTlsOff, chkAnyUser, tbViewPath, tbPageTitle })
             c.IsEnabled = !mirror;
     }
 
@@ -402,21 +475,26 @@ public partial class MainWindow
     private void ClearMarks()
     {
         var line = (Brush)FindResource("LineBrush");
-        foreach (var arr in _fields.Values) foreach (var c in arr) c.BorderBrush = line;
+        foreach (var list in _fields.Values) foreach (var c in list) c.BorderBrush = line;
     }
 
     private void ShowIssue(AppSettings.Issue i)
     {
         SetMsg(Loc.Get("gui.set.notsaved", IssueText(i)), Msg.Err);
-        var first = true;
+        var switched = false;
         foreach (var f in i.Field.Split(','))
         {
-            if (!_fields.TryGetValue(f, out var arr)) continue;
-            foreach (var c in arr)
+            if (!_fields.TryGetValue(f, out var list)) continue;
+            foreach (var c in list) c.BorderBrush = _errBrush;
+            if (switched) continue;
+            // 問題のある項目があるタブへ切り替える（連動する項目は、いまの動作モードのタブを優先）
+            if (_fieldTabs.TryGetValue(f, out var tabs))
             {
-                c.BorderBrush = _errBrush;
-                if (first) { c.BringIntoView(); first = false; }
+                var prefer = rbModeMirror.IsChecked == true ? 2 : 1;
+                SelectTab(tabs.Contains(prefer) ? prefer : tabs[0]);
             }
+            foreach (var c in list) c.BringIntoView();
+            switched = true;
         }
     }
 
@@ -456,7 +534,7 @@ public partial class MainWindow
             SetMsg(Loc.Get("gui.set.notsaved", ex.Message), Msg.Err);
             return;
         }
-        var langChanged = ns.Language != Loc.Language;
+        var langChanged = Loc.Resolve(ns.Language) != Loc.Language;
         _set = ns;
         LoadUi(ns);
         UpdateSecBanner();

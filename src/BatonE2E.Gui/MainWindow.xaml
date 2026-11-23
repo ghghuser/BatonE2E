@@ -1,7 +1,7 @@
 <Window x:Class="BatonE2E.Gui.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="1180" Height="720" MinWidth="620" MinHeight="520"
+        Width="1180" Height="720" MinWidth="720" MinHeight="520"
         Background="{StaticResource BgBrush}" WindowStartupLocation="CenterScreen"
         FontFamily="Yu Gothic UI, Segoe UI" FontSize="13">
   <Grid Margin="14">
@@ -14,7 +14,9 @@
     <DockPanel Grid.Row="0" LastChildFill="False">
       <ToggleButton x:Name="tglLog" DockPanel.Dock="Right" Style="{StaticResource ToggleChoice}" IsChecked="True" Margin="0,0,0,6"/>
       <RadioButton x:Name="rbMain" DockPanel.Dock="Left" Style="{StaticResource TabButton}" GroupName="nav" IsChecked="True"/>
-      <RadioButton x:Name="rbSettings" DockPanel.Dock="Left" Style="{StaticResource TabButton}" GroupName="nav"/>
+      <RadioButton x:Name="rbRelay" DockPanel.Dock="Left" Style="{StaticResource TabButton}" GroupName="nav"/>
+      <RadioButton x:Name="rbMirror" DockPanel.Dock="Left" Style="{StaticResource TabButton}" GroupName="nav"/>
+      <RadioButton x:Name="rbSystem" DockPanel.Dock="Left" Style="{StaticResource TabButton}" GroupName="nav"/>
     </DockPanel>
 
     <Grid Grid.Row="1">
@@ -100,16 +102,26 @@
         </Border>
       </Grid>
 
-      <!-- 設定画面: 入力欄は code-behind で組み立てる（見出し：入力欄、詳細はⓘ） -->
+      <!-- 設定画面（中継・鏡・設定の3タブ共通の枠）: 入力欄は code-behind で組み立てる（見出し：入力欄、詳細はⓘ） -->
       <Grid x:Name="pSettings" Visibility="Collapsed">
         <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
           <RowDefinition Height="*"/>
           <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-          <Grid x:Name="gSet" Margin="2,2,14,8"/>
-        </ScrollViewer>
-        <Border Grid.Row="1" Margin="0,8,0,0" Padding="0,10,0,0" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0">
+        <Border x:Name="profileBar" Grid.Row="0" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,6" Padding="2,0,0,8"/>
+        <Grid Grid.Row="1">
+          <ScrollViewer x:Name="svRelay" VerticalScrollBarVisibility="Auto">
+            <Grid x:Name="gSet" Margin="2,2,14,8"/>
+          </ScrollViewer>
+          <ScrollViewer x:Name="svMirror" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+            <Grid x:Name="gMirror" Margin="2,2,14,8"/>
+          </ScrollViewer>
+          <ScrollViewer x:Name="svSystem" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+            <Grid x:Name="gSys" Margin="2,2,14,8"/>
+          </ScrollViewer>
+        </Grid>
+        <Border Grid.Row="2" Margin="0,8,0,0" Padding="0,10,0,0" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0">
           <StackPanel>
             <WrapPanel>
               <Button x:Name="btnSave" Style="{StaticResource PrimaryButton}" Margin="0,0,8,4"/>

@@ -48,7 +48,9 @@ public partial class MainWindow : Window
         // 文言
         rbMain.Content = Loc.Get("gui.tab.main");
         tglLog.Content = Loc.Get("gui.tab.log");
-        rbSettings.Content = Loc.Get("gui.tab.settings");
+        rbRelay.Content = Loc.Get("gui.tab.relay");
+        rbMirror.Content = Loc.Get("gui.tab.mirror");
+        rbSystem.Content = Loc.Get("gui.tab.system");
         tbBoxSource.Text = Loc.Get("gui.box.source");
         tbBoxView.Text = Loc.Get("gui.box.view");
         tbTunnel.Text = Loc.Get("gui.hint.tunnel");
@@ -72,7 +74,9 @@ public partial class MainWindow : Window
 
         // 操作
         rbMain.Checked += (_, _) => ShowPanel(0);
-        rbSettings.Checked += (_, _) => ShowPanel(1);
+        rbRelay.Checked += (_, _) => ShowPanel(1);
+        rbMirror.Checked += (_, _) => ShowPanel(2);
+        rbSystem.Checked += (_, _) => ShowPanel(3);
         tglLog.Checked += (_, _) => SetLogOpen(true);
         tglLog.Unchecked += (_, _) => SetLogOpen(false);
         rbLogAll.Checked += (_, _) => RebuildLog();
@@ -233,8 +237,14 @@ public partial class MainWindow : Window
 
     private void ShowPanel(int i)
     {
+        // 0=ステータス 1=中継 2=鏡 3=設定。中継・鏡・設定は同じ枠（保存ボタンなど）を共有し、中身だけ切り替える
         pMain.Visibility = i == 0 ? Visibility.Visible : Visibility.Collapsed;
-        pSettings.Visibility = i == 1 ? Visibility.Visible : Visibility.Collapsed;
+        pSettings.Visibility = i >= 1 ? Visibility.Visible : Visibility.Collapsed;
+        svRelay.Visibility = i == 1 ? Visibility.Visible : Visibility.Collapsed;
+        svMirror.Visibility = i == 2 ? Visibility.Visible : Visibility.Collapsed;
+        svSystem.Visibility = i == 3 ? Visibility.Visible : Visibility.Collapsed;
+        // プロファイルは「中継」と「鏡」の設定のまとまり（言語やトレイなどシステムの設定は含まない）
+        profileBar.Visibility = i is 1 or 2 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private const double LogWidth = 410;
