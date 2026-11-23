@@ -26,7 +26,9 @@ public partial class MainWindow
     private TextBlock tbMirrorPreview = null!;
     private Grid _g = null!;        // いま項目を追加している先のフォーム（中継 / 鏡 / 設定）
     private int _curTab;            // その番号（1=中継 2=鏡 3=設定）
-    private CheckBox chkAnyUser = null!, chkProxy = null!, chkLogFile = null!, chkTray = null!;
+    private CheckBox chkAnyUser = null!, chkProxy = null!, chkLogFile = null!, chkTray = null!, chkSoundOn = null!;
+    private ComboBox cbTheme = null!;
+    private Button btnBrowseSound = null!, btnTestSound = null!;
     private TextBox tbSound = null!, tbUpstream = null!;
     private RadioButton rbModeRelay = null!, rbModeMirror = null!;
     private Button btnGenSrc = null!, btnGenView = null!, btnProfileLoad = null!, btnProfileSave = null!, btnProfileDelete = null!;
@@ -150,14 +152,24 @@ public partial class MainWindow
         Row("", chkLogFile, "gui.tip.logfile");
         chkTray = Check(Loc.Get("gui.set.tray"));
         Row("", chkTray, "gui.tip.tray");
+        cbTheme = new ComboBox { Width = 260 };
+        cbTheme.Items.Add(Loc.Get("gui.theme.auto"));
+        cbTheme.Items.Add(Loc.Get("gui.theme.light"));
+        cbTheme.Items.Add(Loc.Get("gui.theme.dark"));
+        cbTheme.SelectionChanged += (_, _) => UpdateDirty();
+        Row("gui.set.theme", cbTheme, "gui.tip.theme");
 
         Group("gui.grp.notify");
+        chkSoundOn = Check(Loc.Get("gui.set.soundon"));
+        chkSoundOn.Checked += (_, _) => ApplySoundEnabled();
+        chkSoundOn.Unchecked += (_, _) => ApplySoundEnabled();
+        Row("", chkSoundOn, "gui.tip.soundon");
         tbSound = Txt(300);
-        var btnBrowse = new Button { Content = Loc.Get("gui.sound.browse"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
-        btnBrowse.Click += (_, _) => OnBrowseSound();
-        var btnTest = new Button { Content = Loc.Get("gui.sound.test"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
-        btnTest.Click += (_, _) => OnTestSound();
-        Row("gui.set.sound", HPanel(tbSound, btnBrowse, btnTest), "gui.tip.sound", "NotifySound");
+        btnBrowseSound = new Button { Content = Loc.Get("gui.sound.browse"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
+        btnBrowseSound.Click += (_, _) => OnBrowseSound();
+        btnTestSound = new Button { Content = Loc.Get("gui.sound.test"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
+        btnTestSound.Click += (_, _) => OnTestSound();
+        Row("gui.set.sound", HPanel(tbSound, btnBrowseSound, btnTestSound), "gui.tip.sound", "NotifySound");
 
         btnSave.Content = Loc.Get("gui.set.save");
         btnRestore.Content = Loc.Get("gui.set.restore");
@@ -185,6 +197,16 @@ public partial class MainWindow
         if (MirrorUrl.ToWebSocketUri(tbUpstream.Text) == null) { tbMirrorPreview.Text = "—"; return; }
         var n = int.TryParse(tbMirrorNo.Text.Trim(), out var v) ? Math.Clamp(v, 1, 99) : 1;
         tbMirrorPreview.Text = Loc.Get("gui.mirror.preview", MirrorUrl.MirrorViewPath(tbUpstream.Text, n), Loc.Get("gui.mirror.suffix", n));
+    }
+
+    /// <summary>通知音がオフのときは、音のファイル欄を灰色にする。</summary>
+    private void ApplySoundEnabled()
+    {
+        if (chkSoundOn == null || tbSound == null) return;
+        var on = chkSoundOn.IsChecked == true;
+        tbSound.IsEnabled = on;
+        btnBrowseSound.IsEnabled = on;
+        btnTestSound.IsEnabled = on;
     }
 
     private void SelectTab(int i) => (i switch { 1 => rbRelay, 2 => rbMirror, 3 => rbSystem, _ => rbMain }).IsChecked = true;
@@ -283,7 +305,7 @@ public partial class MainWindow
         var r = _g.RowDefinitions.Count - 1;
         var lbl = new TextBlock
         {
-            Text = labelKey.Length > 0 ? Loc.Get(labelKey) : "", TextAlignment = TextAlignment.Right, TextWrapping = TextWrapping.Wrap,
+            Text = labelKey.Length > 0 ? Loc.Get(labelKey) + ":" : "", TextAlignment = TextAlignment.Right, TextWrapping = TextWrapping.Wrap,
             HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 4, 2),
         };
         Grid.SetRow(lbl, r);
@@ -364,6 +386,7 @@ public partial class MainWindow
     {
         _loading = true;
         cbLang.SelectedIndex = s.Language switch { "ja" => 1, "en" => 2, _ => 0 };
+        cbTheme.SelectedIndex = s.Theme switch { "light" => 1, "dark" => 2, _ => 0 };
         tbMirrorNo.Text = s.MirrorNumber.ToString();
         rbModeRelay.IsChecked = s.Mode != "mirror";
         rbModeMirror.IsChecked = s.Mode == "mirror";
@@ -392,6 +415,8 @@ public partial class MainWindow
         UpdateMirrorPreview();
         chkTray.IsChecked = s.MinimizeToTray;
         tbSound.Text = s.NotifySound;
+        chkSoundOn.IsChecked = s.NotifySoundEnabled;
+        ApplySoundEnabled();
         _loading = false;
         UpdateDirty();
     }
@@ -432,6 +457,8 @@ public partial class MainWindow
             LogToFile = chkLogFile.IsChecked == true,
             MinimizeToTray = chkTray.IsChecked == true,
             NotifySound = tbSound.Text,
+            NotifySoundEnabled = chkSoundOn.IsChecked == true,
+            Theme = cbTheme.SelectedIndex switch { 1 => "light", 2 => "dark", _ => "auto" },
         };
         s.Normalize();
         issue = iss;
@@ -446,7 +473,7 @@ public partial class MainWindow
         tbUpstream.IsEnabled = mirror;
         tbMirrorNo.IsEnabled = mirror;
         // ミラーでは視聴ページのパス・題名は自動で決まるので、これらも使わない
-        foreach (var c in new Control[] { tbSrcBind, tbSrcPort, tbMount, tbSrcPass, btnGenSrc, tbViewPass, btnGenView, rbTlsAuto, rbTlsOn, rbTlsOff, chkAnyUser, tbViewPath, tbPageTitle })
+        foreach (var c in new Control[] { tbSrcBind, tbSrcPort, tbMount, tbSrcPass, btnGenSrc, tbViewPass, btnGenView, rbTlsAuto, rbTlsOn, rbTlsOff, chkAnyUser, tbViewPath, tbPageTitle, btnTemplate })
             c.IsEnabled = !mirror;
     }
 
@@ -535,6 +562,7 @@ public partial class MainWindow
             return;
         }
         var langChanged = Loc.Resolve(ns.Language) != Loc.Language;
+        if (ns.Theme != _set.Theme) AppTheme.Apply(ns.Theme);
         _set = ns;
         LoadUi(ns);
         UpdateSecBanner();
@@ -555,29 +583,27 @@ public partial class MainWindow
         SetMsg(Loc.Get("gui.set.restored"), Msg.Warn);
     }
 
-    /// <summary>視聴ページのひな形（viewer.html / viewer.css）をviewerフォルダへ出力。既存のファイルは上書きしない。</summary>
+    /// <summary>ViewerPageフォルダを用意し（無ければ viewer.html / viewer.css を作成。既存は上書きしない）、そのフォルダを開く。</summary>
     private void OnTemplate(object sender, RoutedEventArgs e)
     {
         var dir = ViewerTemplate.Folder;
         var made = new List<string>();
-        var kept = new List<string>();
         try
         {
             Directory.CreateDirectory(dir);
             var html = Path.Combine(dir, "viewer.html");
             var css = Path.Combine(dir, "viewer.css");
-            if (File.Exists(html)) kept.Add("viewer.html");
-            else { File.WriteAllText(html, ViewerTemplate.ReadEmbedded(), new UTF8Encoding(false)); made.Add("viewer.html"); }
-            if (File.Exists(css)) kept.Add("viewer.css");
-            else { File.WriteAllText(css, ViewerTemplate.CssSample, new UTF8Encoding(false)); made.Add("viewer.css"); }
+            if (!File.Exists(html)) { File.WriteAllText(html, ViewerTemplate.ReadEmbedded(), new UTF8Encoding(false)); made.Add("viewer.html"); }
+            if (!File.Exists(css)) { File.WriteAllText(css, ViewerTemplate.CssSample, new UTF8Encoding(false)); made.Add("viewer.css"); }
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dir) { UseShellExecute = true });
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
             SetMsg(Loc.Get("gui.set.notsaved", ex.Message), Msg.Err);
             return;
         }
-        var text = made.Count > 0 ? Loc.Get("gui.set.template.done", string.Join(", ", made), dir) : "";
-        if (kept.Count > 0) text += (text.Length > 0 ? "\n" : "") + Loc.Get("gui.set.template.exists", string.Join(", ", kept));
-        SetMsg(text, made.Count > 0 ? Msg.Ok : Msg.Warn);
+        var text = Loc.Get("gui.set.template.opened", dir);
+        if (made.Count > 0) text = Loc.Get("gui.set.template.done", string.Join(", ", made)) + "\n" + text;
+        SetMsg(text, Msg.Ok);
     }
 }

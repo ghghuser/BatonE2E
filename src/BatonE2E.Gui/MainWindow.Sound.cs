@@ -22,7 +22,7 @@ public partial class MainWindow
         Dispatcher.BeginInvoke(() =>
         {
             var path = _set.NotifySound;
-            if (path.Length == 0 || _joinNotifier == null) return;
+            if (!_set.NotifySoundEnabled || path.Length == 0 || _joinNotifier == null) return;
             if (!_joinNotifier.ShouldNotify(remote, DateTime.Now)) return;
             PlaySound(path);
         });

@@ -48,6 +48,11 @@ internal static class ConfigTests
             T.Check("ミラー設定: 上流URLが空・不正なら保存不可", new AppSettings { Mode = "mirror" }.Check()?.Key == "gui.err.upstream"
                 && new AppSettings { Mode = "mirror", UpstreamUrl = "ftp://x" }.Check()?.Field == "UpstreamUrl");
             T.Check("ミラー設定: 自分自身を指すURLは保存不可", new AppSettings { Mode = "mirror", UpstreamUrl = "http://127.0.0.1:8080/", ViewPort = 8080 }.Check()?.Key == "gui.err.upstreamself");
+            T.Check("テーマ: 既定はauto、不正な値はautoに戻る。light/darkはそのまま", new AppSettings().Theme == "auto" && NormTheme("blue") == "auto" && NormTheme("light") == "light" && NormTheme("dark") == "dark");
+            var pq = Path.Combine(dir, "snd.json");
+            new AppSettings { NotifySoundEnabled = false, Theme = "dark" }.Save(pq);
+            var rq = AppSettings.TryRead(pq);
+            T.Check("通知音のオンオフ・テーマ: 既定はオン/auto。保存して読み戻しても保たれる", new AppSettings().NotifySoundEnabled && rq != null && !rq.NotifySoundEnabled && rq.Theme == "dark");
             T.Check("言語: 既定はsystem、不正な値もsystemに戻る。ja/enはそのまま", new AppSettings().Language == "system" && Norm("fr") == "system" && Norm("ja") == "ja" && Norm("en") == "en");
             T.Check("言語: systemはOSの言語が日本語ならja、それ以外はen", BatonE2E.Core.Loc.Resolve("system", "ja") == "ja" && BatonE2E.Core.Loc.Resolve("system", "JA") == "ja"
                 && BatonE2E.Core.Loc.Resolve("system", "en") == "en" && BatonE2E.Core.Loc.Resolve("system", "fr") == "en" && BatonE2E.Core.Loc.Resolve("ja", "en") == "ja" && BatonE2E.Core.Loc.Resolve("en", "ja") == "en");
@@ -87,6 +92,8 @@ internal static class ConfigTests
         }
         finally { try { Directory.Delete(dir, true); } catch (IOException) { } }
     }
+
+    private static string NormTheme(string t) { var s = new AppSettings { Theme = t }; s.Normalize(); return s.Theme; }
 
     private static string Norm(string lang) { var s = new AppSettings { Language = lang }; s.Normalize(); return s.Language; }
     private static int Num(int n) { var s = new AppSettings { MirrorNumber = n }; s.Normalize(); return s.MirrorNumber; }

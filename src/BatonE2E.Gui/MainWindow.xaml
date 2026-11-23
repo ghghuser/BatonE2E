@@ -112,13 +112,13 @@
         <Border x:Name="profileBar" Grid.Row="0" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,6" Padding="2,0,0,8"/>
         <Grid Grid.Row="1">
           <ScrollViewer x:Name="svRelay" VerticalScrollBarVisibility="Auto">
-            <Grid x:Name="gSet" Margin="2,2,14,8"/>
+            <Grid x:Name="gSet" Margin="8,2,14,8"/>
           </ScrollViewer>
           <ScrollViewer x:Name="svMirror" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-            <Grid x:Name="gMirror" Margin="2,2,14,8"/>
+            <Grid x:Name="gMirror" Margin="8,2,14,8"/>
           </ScrollViewer>
           <ScrollViewer x:Name="svSystem" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-            <Grid x:Name="gSys" Margin="2,2,14,8"/>
+            <Grid x:Name="gSys" Margin="8,2,14,8"/>
           </ScrollViewer>
         </Grid>
         <Border Grid.Row="2" Margin="0,8,0,0" Padding="0,10,0,0" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0">

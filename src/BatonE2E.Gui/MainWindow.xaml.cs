@@ -31,9 +31,6 @@ public partial class MainWindow : Window
 
     private readonly TextBox _vSrvServer, _vSrvPort, _vSrvMount, _vSrvUser, _vSrvPass, _vSrvTls, _vSrvFp, _vViewUrl, _vViewPass;
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
-
     public MainWindow(AppSettings settings, bool settingsCorrupted)
     {
         _set = settings;
@@ -113,13 +110,8 @@ public partial class MainWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        try
-        {
-            var h = new WindowInteropHelper(this).Handle;
-            var on = 1;
-            DwmSetWindowAttribute(h, 20, ref on, sizeof(int)); // タイトルバーをダークに（対応OSのみ）
-        }
-        catch { /* 見た目だけの機能なので無視 */ }
+        AppTheme.SetTitleBar(this);
+        AppTheme.Changed += () => AppTheme.SetTitleBar(this);
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -214,7 +206,11 @@ public partial class MainWindow : Window
     {
         var r = g.RowDefinitions.Count;
         g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var lbl = new TextBlock { Text = Loc.Get(labelKey), Foreground = (Brush)FindResource("MutedBrush"), Margin = new Thickness(0, 1, 8, 1) };
+        var lbl = new TextBlock
+        {
+            Text = Loc.Get(labelKey) + ":", Foreground = (Brush)FindResource("MutedBrush"), Margin = new Thickness(0, 1, 8, 1),
+            TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right,
+        };
         Grid.SetRow(lbl, r);
         g.Children.Add(lbl);
         var tb = new TextBox { IsReadOnly = true, Margin = new Thickness(0, 1, 6, 1) };

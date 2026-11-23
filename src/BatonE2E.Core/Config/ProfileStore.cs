@@ -63,6 +63,8 @@ public static class ProfileStore
         s.LogToFile = current.LogToFile;
         s.MinimizeToTray = current.MinimizeToTray;
         s.NotifySound = current.NotifySound;
+        s.NotifySoundEnabled = current.NotifySoundEnabled;
+        s.Theme = current.Theme;
         return s;
     }
 

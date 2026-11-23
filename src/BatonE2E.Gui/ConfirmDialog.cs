@@ -1,8 +1,6 @@
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
 
 namespace BatonE2E.Gui;
@@ -11,9 +9,6 @@ namespace BatonE2E.Gui;
 /// 音が必要な「重大なエラー」（クラッシュ報告）以外の確認はこちらを使う。既定は「いいえ」。</summary>
 public static class ConfirmDialog
 {
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
-
     public static bool Ask(Window? owner, string text, string title, bool warning)
     {
         var res = (Brush)Application.Current.FindResource("PanelBrush");
@@ -47,11 +42,7 @@ public static class ConfirmDialog
         root.Children.Add(buttons);
         win.Content = root;
 
-        win.SourceInitialized += (_, _) =>
-        {
-            try { var on = 1; DwmSetWindowAttribute(new WindowInteropHelper(win).Handle, 20, ref on, sizeof(int)); }
-            catch { /* 見た目だけの機能なので無視 */ }
-        };
+        win.SourceInitialized += (_, _) => AppTheme.SetTitleBar(win);
         win.ContentRendered += (_, _) => no.Focus();
         win.ShowDialog();
         return result;

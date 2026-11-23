@@ -19,10 +19,10 @@ internal static class ProfileTests
             T.Check("プロファイル: 保存した名前が一覧に出る（前後の空白は除く）", names.Count == 2 && names.Contains("夜の配信用") && names.Contains("Home"));
             T.Check("プロファイル: 存在確認", ProfileStore.Exists(cfg, "Home") && !ProfileStore.Exists(cfg, "Nothing"));
 
-            var cur = new AppSettings { Language = "ja", LogToFile = false, MinimizeToTray = true, NotifySound = "keep.mp3" };
+            var cur = new AppSettings { Language = "ja", LogToFile = false, MinimizeToTray = true, NotifySound = "keep.mp3", NotifySoundEnabled = false, Theme = "light" };
             var l = ProfileStore.Load(cfg, "夜の配信用", cur);
             T.Check("プロファイル: 内容を読み込める", l != null && l.SourcePort == 9100 && l.ViewPort == 9200 && l.PageTitle == "夜の配信");
-            T.Check("プロファイル: 言語・ログ出力・トレイ格納は現在の値のまま", l != null && l.Language == "ja" && !l.LogToFile && l.MinimizeToTray && l.NotifySound == "keep.mp3");
+            T.Check("プロファイル: 言語・ログ出力・トレイ格納は現在の値のまま", l != null && l.Language == "ja" && !l.LogToFile && l.MinimizeToTray && l.NotifySound == "keep.mp3" && !l.NotifySoundEnabled && l.Theme == "light");
             T.Check("プロファイル: 無い名前は null", ProfileStore.Load(cfg, "Nothing", cur) == null);
 
             ProfileStore.Save(cfg, "Home", new AppSettings { SourcePort = 9400 });

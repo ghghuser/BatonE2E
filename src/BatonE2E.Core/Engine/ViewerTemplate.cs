@@ -7,17 +7,15 @@ namespace BatonE2E.Core.Engine;
 public static class ViewerTemplate
 {
     /// <summary>差し替えファイルを置くフォルダ名（exeの横）。</summary>
-    public const string FolderName = "viewer";
+    public const string FolderName = "ViewerPage";
 
     public static string Folder => Path.Combine(AppContext.BaseDirectory, FolderName);
 
-    /// <summary>差し替えファイルの場所。viewerフォルダ内を優先し、旧位置（exeの横）も受け付ける。無ければ null。</summary>
+    /// <summary>差し替えファイルの場所（ViewerPageフォルダ内）。無ければ null。</summary>
     public static string? FindFile(string name)
     {
         var p = Path.Combine(Folder, name);
-        if (File.Exists(p)) return p;
-        var legacy = Path.Combine(AppContext.BaseDirectory, name);
-        return File.Exists(legacy) ? legacy : null;
+        return File.Exists(p) ? p : null;
     }
 
     public static string ReadEmbedded()
@@ -29,7 +27,7 @@ public static class ViewerTemplate
     }
 
     public const string CssSample = """
-/* viewer.css: 視聴ページの見た目を変えるCSS（viewerフォルダに置く）。
+/* viewer.css: 視聴ページの見た目を変えるCSS（ViewerPageフォルダに置く）。
    標準ページの<head>末尾に差し込まれるので、ここに書いたものが優先されます。
    例:
    body { background: #101820; }

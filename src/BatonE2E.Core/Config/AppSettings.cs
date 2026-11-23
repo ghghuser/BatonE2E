@@ -39,6 +39,10 @@ public sealed class AppSettings
     public bool MinimizeToTray { get; set; } = true;
     /// <summary>視聴者が接続したときに鳴らす音声ファイル（wav/mp3/wma）。空なら鳴らさない。PC固有のため全体の設定（プロファイル対象外）。</summary>
     public string NotifySound { get; set; } = "";
+    /// <summary>接続通知音を鳴らすか（音のファイル指定とは別に、いつでも切れる）。</summary>
+    public bool NotifySoundEnabled { get; set; } = true;
+    /// <summary>画面の配色。auto=OSに合わせる / light / dark。</summary>
+    public string Theme { get; set; } = "auto";
     public static readonly string[] SoundExtensions = { ".wav", ".mp3", ".wma" };
 
     // ---- 視聴側のアクセス制御 ----
@@ -72,6 +76,7 @@ public sealed class AppSettings
     public void Normalize()
     {
         if (Language != "ja" && Language != "en") Language = "system";
+        if (Theme != "light" && Theme != "dark") Theme = "auto";
         Mode = Mode == "mirror" ? "mirror" : "relay";
         MirrorNumber = Math.Clamp(MirrorNumber, 1, 99);
         UpstreamUrl = (UpstreamUrl ?? "").Trim();
