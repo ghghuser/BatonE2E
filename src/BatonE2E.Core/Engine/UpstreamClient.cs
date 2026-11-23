@@ -66,7 +66,6 @@ public sealed class UpstreamClient : IAsyncDisposable
     {
         using var ws = new ClientWebSocket();
         ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
-        ws.Options.KeepAliveTimeout = TimeSpan.FromSeconds(20);
         ws.Options.SetRequestHeader("User-Agent", "BatonE2E-Mirror");
         using (var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
         {
