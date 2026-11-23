@@ -43,6 +43,16 @@ internal static class ConfigTests
             T.Check("設定: パスワード空なら自動生成", o.SourcePassword.Length >= 16 && o.ViewPassword.Length >= 20);
             var o2 = new AppSettings { ViewPassword = "固定" }.ToEngineOptions();
             T.Check("設定: パスワード指定ならそのまま使う", o2.ViewPassword == "固定");
+            var mir = new AppSettings { Mode = "mirror", UpstreamUrl = "https://a.ts.net/live", ViewPort = 9000, SourcePort = 9000, ViewPassword = "x", SourceTls = "off", SourceBind = "0.0.0.0" };
+            T.Check("ミラー設定: 配信ソフト側の設定（同じポート・短いパスワード等）は検査しない", mir.Check() == null && mir.SecurityWarnings().Count == 0);
+            T.Check("ミラー設定: 上流URLが空・不正なら保存不可", new AppSettings { Mode = "mirror" }.Check()?.Key == "gui.err.upstream"
+                && new AppSettings { Mode = "mirror", UpstreamUrl = "ftp://x" }.Check()?.Field == "UpstreamUrl");
+            T.Check("ミラー設定: 自分自身を指すURLは保存不可", new AppSettings { Mode = "mirror", UpstreamUrl = "http://127.0.0.1:8080/", ViewPort = 8080 }.Check()?.Key == "gui.err.upstreamself");
+            T.Check("ミラー設定: 通常モードではURLが空でも問題なし・不正なモード名は通常に戻る",
+                new AppSettings { UpstreamUrl = "" }.Check() == null && new AppSettings { Mode = "???" }.IsMirror == false);
+            var mo = mir.ToEngineOptions();
+            T.Check("ミラー設定: エンジン設定へ変換するとミラーになり、パスワードは作らない", mo.IsMirror && mo.UpstreamUrl == mir.UpstreamUrl && mo.SourcePassword == "" && mo.ViewPassword == "");
+            T.Check("ミラー設定: 通常モードではミラーにならない", !new AppSettings { UpstreamUrl = "https://a.ts.net/x" }.ToEngineOptions().IsMirror);
             T.Check("パスワード: 7文字は拒否・8文字は許可", new AppSettings { ViewPassword = "abcdefg" }.Check() != null && new AppSettings { ViewPassword = "abcdefgh" }.Check() == null);
             T.Check("パスワード: 日本語8文字は許可・12文字未満は警告", new AppSettings { ViewPassword = "ぱすわーどです" + "ね" }.Check() == null && new AppSettings { ViewPassword = "ぱすわーどですね" }.IsWeakViewPassword);
             // 日本語（濁点の合成/分解違い）でも同じ鍵になること（NFC正規化）

@@ -321,17 +321,21 @@ public partial class MainWindow : Window
         GraphReset();
         eng.Stats.ViewerJoined += OnViewerJoined;
 
-        _vSrvServer.Text = o.SourceBind == "0.0.0.0" ? Loc.Get("gui.val.anyaddr") : o.SourceBind;
-        _vSrvPort.Text = o.SourcePort.ToString();
-        _vSrvMount.Text = o.Mount;
-        _vSrvUser.Text = "source";
-        _vSrvPass.Text = o.SourcePassword;
-        _vSrvTls.Text = Loc.Get(o.SourceTls switch { SourceTlsMode.Off => "gui.tls.off", SourceTlsMode.On => "gui.tls.on", _ => "gui.tls.auto" });
-        _vSrvFp.Text = eng.SourceCertFingerprintColon ?? "—";
+        if (!o.IsMirror)
+        {
+            _vSrvServer.Text = o.SourceBind == "0.0.0.0" ? Loc.Get("gui.val.anyaddr") : o.SourceBind;
+            _vSrvPort.Text = o.SourcePort.ToString();
+            _vSrvMount.Text = o.Mount;
+            _vSrvUser.Text = "source";
+            _vSrvPass.Text = o.SourcePassword;
+            _vSrvTls.Text = Loc.Get(o.SourceTls switch { SourceTlsMode.Off => "gui.tls.off", SourceTlsMode.On => "gui.tls.on", _ => "gui.tls.auto" });
+            _vSrvFp.Text = eng.SourceCertFingerprintColon ?? "—";
+        }
         _vViewUrl.Text = $"http://127.0.0.1:{o.ViewPort}{o.ViewPath}";
-        _vViewPass.Text = o.ViewPassword;
+        _vViewPass.Text = o.IsMirror ? Loc.Get("gui.val.samepw") : o.ViewPassword;
         tbRegen.Text = eng.SourceCertRegenerated ? Loc.Get("gui.hint.regen") : "";
-        tbHint.Text = "";
+        tbHint.Text = o.IsMirror ? Loc.Get("gui.hint.mirror") : "";
+        UpdateSourceCard();
         btnStartStop.Content = Loc.Get("gui.btn.stop");
         AppLog.Info(Loc.Get("gui.log.started"));
         foreach (var w in _set.SecurityWarnings()) AppLog.Warn(Loc.Get("gui.sec.log", Loc.Get(w)));
@@ -356,7 +360,23 @@ public partial class MainWindow : Window
         tbHint.Text = Loc.Get("gui.hint.stopped");
         tbRegen.Text = "";
         btnStartStop.Content = Loc.Get("gui.btn.start");
+        UpdateSourceCard();
     }
+
+    /// <summary>「配信ソフトに設定する値」の枠は、ミラーでは使わないので隠す（中継中は動作中のモード、停止中は設定のモード）。</summary>
+    private void UpdateSourceCard()
+    {
+        var mirror = _engine?.Options.IsMirror ?? _set.IsMirror;
+        cardSource.Visibility = mirror ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private string UpstreamText(EngineStats st, EngineOptions o) => st.Upstream switch
+    {
+        UpstreamStatus.Connected => Loc.Get("gui.up.connected", o.UpstreamUrl),
+        UpstreamStatus.Waiting => Loc.Get("gui.up.waiting", st.UpstreamError),
+        UpstreamStatus.Connecting => Loc.Get("gui.up.connecting", o.UpstreamUrl),
+        _ => "",
+    };
 
     private void UpdateStats()
     {
@@ -372,13 +392,15 @@ public partial class MainWindow : Window
         }
         var st = eng.Stats;
         var live = st.SourceActive;
-        tbState.Text = Loc.Get(live ? "gui.state.live" : "gui.state.running");
+        var mirror = eng.Options.IsMirror;
+        tbState.Text = Loc.Get(mirror ? (live ? "gui.state.mirror.live" : "gui.state.mirror.running") : (live ? "gui.state.live" : "gui.state.running"));
         tbState.Foreground = live ? _okBrush : _textBrush;
-        tbSource.Text = live ? Loc.Get("gui.src.active", st.SourceMime) : Loc.Get("gui.src.waiting");
+        tbSource.Text = mirror ? UpstreamText(st, eng.Options) : live ? Loc.Get("gui.src.active", st.SourceMime) : Loc.Get("gui.src.waiting");
         tbStats.Text = Loc.Get("gui.stat.viewers.full", eng.Hub?.ViewerCount ?? 0, st.PeakViewers, st.TotalViewers) + "    "
                        + Loc.Get("gui.stat.bytes", st.BytesIn / 1024) + "    "
                        + Loc.Get("gui.stat.frames", st.Frames);
-        if (st.CheckNg > 0) { tbEnc.Text = Loc.Get("gui.enc.ng", st.CheckNg); tbEnc.Foreground = _errBrush; }
+        if (mirror) { tbEnc.Text = Loc.Get("gui.enc.mirror"); tbEnc.Foreground = _textBrush; }
+        else if (st.CheckNg > 0) { tbEnc.Text = Loc.Get("gui.enc.ng", st.CheckNg); tbEnc.Foreground = _errBrush; }
         else if (st.Frames == 0) { tbEnc.Text = Loc.Get("gui.enc.idle"); tbEnc.Foreground = _textBrush; }
         else { tbEnc.Text = Loc.Get("gui.enc.ok", st.CheckOk); tbEnc.Foreground = _okBrush; }
     }

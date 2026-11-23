@@ -22,7 +22,8 @@ public partial class MainWindow
         tbRateBan = null!, tbDeny = null!;
     private RadioButton rbLangJa = null!, rbLangEn = null!, rbTlsAuto = null!, rbTlsOn = null!, rbTlsOff = null!;
     private CheckBox chkAnyUser = null!, chkProxy = null!, chkLogFile = null!, chkTray = null!;
-    private TextBox tbSound = null!;
+    private TextBox tbSound = null!, tbUpstream = null!;
+    private RadioButton rbModeRelay = null!, rbModeMirror = null!;
     private Button btnGenSrc = null!, btnGenView = null!, btnProfileLoad = null!, btnProfileSave = null!, btnProfileDelete = null!;
     private TextBox tbProfileName = null!;
     private ListBox lbProfiles = null!;
@@ -45,6 +46,13 @@ public partial class MainWindow
         rbLangJa = Choice("日本語", "lang");
         rbLangEn = Choice("English", "lang");
         Row("gui.set.language", HPanel(rbLangJa, rbLangEn), "gui.tip.language");
+        rbModeRelay = Choice(Loc.Get("gui.mode.relay"), "mode");
+        rbModeMirror = Choice(Loc.Get("gui.mode.mirror"), "mode");
+        rbModeRelay.Checked += (_, _) => ApplyModeEnabled();
+        rbModeMirror.Checked += (_, _) => ApplyModeEnabled();
+        Row("gui.set.mode", HPanel(rbModeRelay, rbModeMirror), "gui.tip.mode", "Mode");
+        tbUpstream = Txt(420);
+        Row("gui.set.upstream", tbUpstream, "gui.tip.upstream", "UpstreamUrl");
 
         Group("gui.grp.net");
         tbSrcBind = Txt(200);
@@ -288,6 +296,9 @@ public partial class MainWindow
         _loading = true;
         rbLangJa.IsChecked = s.Language == "ja";
         rbLangEn.IsChecked = s.Language == "en";
+        rbModeRelay.IsChecked = s.Mode != "mirror";
+        rbModeMirror.IsChecked = s.Mode == "mirror";
+        tbUpstream.Text = s.UpstreamUrl;
         tbSrcBind.Text = s.SourceBind;
         tbSrcPort.Text = s.SourcePort.ToString();
         tbViewPort.Text = s.ViewPort.ToString();
@@ -308,6 +319,7 @@ public partial class MainWindow
         chkProxy.IsChecked = s.UseProxyHeader;
         tbDeny.Text = s.DenyRules.Replace("\r", "").Replace("\n", "\r\n");
         chkLogFile.IsChecked = s.LogToFile;
+        ApplyModeEnabled();
         chkTray.IsChecked = s.MinimizeToTray;
         tbSound.Text = s.NotifySound;
         _loading = false;
@@ -327,6 +339,8 @@ public partial class MainWindow
         var s = new AppSettings
         {
             Language = rbLangEn.IsChecked == true ? "en" : "ja",
+            Mode = rbModeMirror.IsChecked == true ? "mirror" : "relay",
+            UpstreamUrl = tbUpstream.Text,
             SourceBind = tbSrcBind.Text,
             SourcePort = Num(tbSrcPort, "SourcePort", "gui.set.srcport", 1, 65535),
             ViewPort = Num(tbViewPort, "ViewPort", "gui.set.viewport", 1, 65535),
@@ -351,6 +365,16 @@ public partial class MainWindow
         s.Normalize();
         issue = iss;
         return s;
+    }
+
+    /// <summary>モードに合わない入力欄を灰色にする（ミラーは配信ソフトの受け口・パスワードを使わない）。</summary>
+    private void ApplyModeEnabled()
+    {
+        if (tbUpstream == null || chkAnyUser == null) return;
+        var mirror = rbModeMirror.IsChecked == true;
+        tbUpstream.IsEnabled = mirror;
+        foreach (var c in new Control[] { tbSrcBind, tbSrcPort, tbMount, tbSrcPass, btnGenSrc, tbViewPass, btnGenView, rbTlsAuto, rbTlsOn, rbTlsOff, chkAnyUser })
+            c.IsEnabled = !mirror;
     }
 
     private void UpdateDirty()
@@ -436,6 +460,7 @@ public partial class MainWindow
         _set = ns;
         LoadUi(ns);
         UpdateSecBanner();
+        UpdateSourceCard();
         AppLog.FilePath = ns.LogToFile ? Path.Combine(AppContext.BaseDirectory, "BatonE2E.log") : null;
         AppLog.Info(Loc.Get("gui.set.saved.log"));
         var msg = Loc.Get(_engine != null ? "gui.set.saved.running" : "gui.set.saved", DateTime.Now.ToString("HH:mm:ss"));

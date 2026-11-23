@@ -9,6 +9,11 @@ namespace BatonE2E.Core.Config;
 public sealed class AppSettings
 {
     public string Language { get; set; } = "ja";
+    /// <summary>relay=配信ソフトから受けて中継する（通常）／mirror=別のBatonE2Eから暗号文のまま受けて中継する。</summary>
+    public string Mode { get; set; } = "relay";
+    /// <summary>ミラーの上流（元のBatonE2Eの視聴ページのURL）。</summary>
+    public string UpstreamUrl { get; set; } = "";
+    public bool IsMirror => Mode == "mirror";
     public int SourcePort { get; set; } = 8000;
     /// <summary>sourceの待ち受けアドレス。127.0.0.1以外は外部公開（TLS必須・強いパスワード必須）。</summary>
     public string SourceBind { get; set; } = "127.0.0.1";
@@ -64,6 +69,9 @@ public sealed class AppSettings
     public void Normalize()
     {
         if (Language != "ja" && Language != "en") Language = "ja";
+        Mode = Mode == "mirror" ? "mirror" : "relay";
+        UpstreamUrl = (UpstreamUrl ?? "").Trim();
+        if (UpstreamUrl.Length > 2048) UpstreamUrl = "";
         if (SourcePort is < 1 or > 65535) SourcePort = 8000;
         SourceBind = System.Net.IPAddress.TryParse((SourceBind ?? "").Trim(), out var bindIp) ? bindIp.ToString() : "127.0.0.1";
         if (ViewPort is < 1 or > 65535) ViewPort = 8080;
@@ -96,13 +104,23 @@ public sealed class AppSettings
     /// <summary>保存・開始できない問題。なければ null。</summary>
     public Issue? Check()
     {
-        if (SourcePort == ViewPort) return Mk("gui.err.sameport", "SourcePort,ViewPort");
-        if (ViewPassword.Length is > 0 and < MinViewPasswordLength) return Mk("gui.err.shortpass", "ViewPassword", MinViewPasswordLength);
-        if (!EngineOptions.IsLoopbackBind(SourceBind))
+        if (IsMirror)
         {
-            if (SourceTls == "off") return Mk("gui.err.bindtls", "SourceTls");
-            if (SourcePassword.Length is > 0 and < EngineOptions.MinExternalSourcePasswordLength)
-                return Mk("gui.err.bindpass", "SourcePassword", EngineOptions.MinExternalSourcePasswordLength);
+            // ミラーは配信ソフトの受け口もパスワードも使わない（視聴者は元と同じパスワードで復号する）
+            var up = MirrorUrl.ToWebSocketUri(UpstreamUrl);
+            if (up == null) return Mk("gui.err.upstream", "UpstreamUrl");
+            if (MirrorUrl.IsSelf(up, ViewPort, ViewPath)) return Mk("gui.err.upstreamself", "UpstreamUrl");
+        }
+        else
+        {
+            if (SourcePort == ViewPort) return Mk("gui.err.sameport", "SourcePort,ViewPort");
+            if (ViewPassword.Length is > 0 and < MinViewPasswordLength) return Mk("gui.err.shortpass", "ViewPassword", MinViewPasswordLength);
+            if (!EngineOptions.IsLoopbackBind(SourceBind))
+            {
+                if (SourceTls == "off") return Mk("gui.err.bindtls", "SourceTls");
+                if (SourcePassword.Length is > 0 and < EngineOptions.MinExternalSourcePasswordLength)
+                    return Mk("gui.err.bindpass", "SourcePassword", EngineOptions.MinExternalSourcePasswordLength);
+            }
         }
         if (NotifySound.Length > 0 && !SoundExtensions.Contains(Path.GetExtension(NotifySound).ToLowerInvariant()))
             return Mk("gui.err.soundext", "NotifySound");
@@ -117,11 +135,14 @@ public sealed class AppSettings
     public List<string> SecurityWarnings()
     {
         var w = new List<string>();
-        if (SourceTls == "off") w.Add("gui.sec.tlsoff");
-        if (AcceptAnySourceUser) w.Add("gui.sec.anyuser");
-        if (IsWeakViewPassword) w.Add("gui.sec.weakview");
-        if (SourcePassword.Length is > 0 and < 8) w.Add("gui.sec.weaksrc");
-        if (!EngineOptions.IsLoopbackBind(SourceBind)) w.Add("gui.sec.extbind");
+        if (!IsMirror)   // 配信ソフトの受け口・パスワードに関する項目は、ミラーでは使わない
+        {
+            if (SourceTls == "off") w.Add("gui.sec.tlsoff");
+            if (AcceptAnySourceUser) w.Add("gui.sec.anyuser");
+            if (IsWeakViewPassword) w.Add("gui.sec.weakview");
+            if (SourcePassword.Length is > 0 and < 8) w.Add("gui.sec.weaksrc");
+            if (!EngineOptions.IsLoopbackBind(SourceBind)) w.Add("gui.sec.extbind");
+        }
         if (MaxConnPerClient == 0) w.Add("gui.sec.noconnlimit");
         if (RateMaxRequests == 0 || RateWindowSec == 0 || RateBanSec == 0) w.Add("gui.sec.norate");
         if (!UseProxyHeader) w.Add("gui.sec.noproxy");
@@ -229,8 +250,9 @@ public sealed class AppSettings
             PageTitle = PageTitle,
             AcceptAnySourceUser = AcceptAnySourceUser,
             SourceTls = Enum.Parse<SourceTlsMode>(SourceTls, true),
-            SourcePassword = SourcePassword.Length > 0 ? SourcePassword : PassphraseGenerator.Generate(4, 4),
-            ViewPassword = ViewPassword.Length > 0 ? ViewPassword : PassphraseGenerator.Generate(),
+            UpstreamUrl = IsMirror ? UpstreamUrl : "",
+            SourcePassword = IsMirror ? "" : SourcePassword.Length > 0 ? SourcePassword : PassphraseGenerator.Generate(4, 4),
+            ViewPassword = IsMirror ? "" : ViewPassword.Length > 0 ? ViewPassword : PassphraseGenerator.Generate(),
         };
     }
 }
