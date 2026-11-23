@@ -1,5 +1,7 @@
 namespace BatonE2E.Core.Engine;
 
+public enum UpstreamStatus { None, Connecting, Connected, Waiting }
+
 /// <summary>画面・コンソール表示用の統計。暗号化が正しく行われているかの自己検査結果も含む。</summary>
 public sealed class EngineStats
 {
@@ -16,7 +18,27 @@ public sealed class EngineStats
     public long Frames => Interlocked.Read(ref _frames);
     public long CheckOk => Interlocked.Read(ref _checkOk);
     public long CheckNg => Interlocked.Read(ref _checkNg);
-    public volatile bool SourceActive;
+    private volatile bool _sourceActive;
+    private volatile bool _mirror;
+    private long _lastFrameTicks;
+
+    /// <summary>ミラー（暗号文のまま中継。このPCは復号できず、自己検査もできない）として動いているか。</summary>
+    public bool Mirror { get => _mirror; internal set => _mirror = value; }
+
+    /// <summary>入力あり。ミラーでは「直近5秒以内に上流からフレームが届いた」こと。</summary>
+    public bool SourceActive
+    {
+        get => _mirror
+            ? (DateTime.UtcNow.Ticks - Interlocked.Read(ref _lastFrameTicks)) is >= 0 and < 5 * TimeSpan.TicksPerSecond
+            : _sourceActive;
+        set => _sourceActive = value;
+    }
+
+    /// <summary>ミラーの上流との接続の状態。</summary>
+    public volatile UpstreamStatus Upstream;
+    /// <summary>上流に接続できない・切れた理由（接続中は空）。</summary>
+    public volatile string UpstreamError = "";
+    internal void TouchFrame() => Interlocked.Exchange(ref _lastFrameTicks, DateTime.UtcNow.Ticks);
     public volatile string SourceMime = "";
 
     internal void AddBytesIn(int n) => Interlocked.Add(ref _bytesIn, n);

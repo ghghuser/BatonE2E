@@ -13,6 +13,7 @@ public sealed class RelayEngine : IAsyncDisposable
     private FrameDecryptor? _monitor;
     private SourceListener? _source;
     private ViewerServer? _viewer;
+    private UpstreamClient? _upstream;
     private X509Certificate2? _cert;
 
     public EngineStats Stats { get; } = new();
@@ -33,6 +34,16 @@ public sealed class RelayEngine : IAsyncDisposable
         _o.Validate();
         try
         {
+            if (_o.IsMirror)
+            {
+                // ミラー: 鍵を持たず、暗号文のまま中継する。視聴者は元と同じパスワードで復号する
+                Hub = StreamHub.CreateMirror(_o.MaxViewers, Stats);
+                _viewer = await ViewerServer.StartAsync(_o, Hub);
+                var uri = MirrorUrl.ToWebSocketUri(_o.UpstreamUrl)!;
+                _upstream = new UpstreamClient(uri, Hub, Stats, TimeSpan.FromMilliseconds(Math.Clamp(_o.UpstreamRetryMs, 50, 60_000)));
+                _upstream.Start();
+                return;
+            }
             _enc = FrameEncryptor.Create(_o.ViewPassword, _o.Iterations);
             _monitor = FrameDecryptor.Create(_o.ViewPassword, _enc.Header);
             Hub = new StreamHub(_enc, _monitor, _o.MaxViewers, Stats);
@@ -68,6 +79,7 @@ public sealed class RelayEngine : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Hub?.KickAll("stop");
+        if (_upstream != null) { await _upstream.DisposeAsync(); _upstream = null; }
         if (_viewer != null) { await _viewer.DisposeAsync(); _viewer = null; }
         if (_source != null) { await _source.DisposeAsync(); _source = null; }
         _cert?.Dispose(); _cert = null;

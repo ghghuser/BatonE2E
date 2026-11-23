@@ -122,6 +122,12 @@ internal sealed class ViewerServer : IAsyncDisposable
 
     private async Task HandleSocketCoreAsync(HttpContext ctx, string remote)
     {
+        if (!_hub.Ready)
+        {
+            AppLog.Warn(Loc.Get("log.viewer.notready", remote));
+            ctx.Response.StatusCode = 503;
+            return;
+        }
         var v = _hub.TryAddViewer(_o.ViewerQueue, remote);
         if (v == null)
         {

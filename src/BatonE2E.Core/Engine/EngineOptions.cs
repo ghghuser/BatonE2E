@@ -36,6 +36,11 @@ public sealed class EngineOptions
     public int ViewerQueue { get; set; } = 64;
     /// <summary>視聴ページの差し替えファイル。未指定なら exeと同じ場所の viewer.html、なければ埋め込み。</summary>
     public string? ViewerPageFile { get; set; }
+    /// <summary>ミラー: 元のBatonE2Eの視聴ページのURL。指定するとミラーとして動く（配信ソフトの受け口・パスワードは使わない）。</summary>
+    public string UpstreamUrl { get; set; } = "";
+    public bool IsMirror => !string.IsNullOrWhiteSpace(UpstreamUrl);
+    /// <summary>ミラーが上流へ再接続するときの最初の待ち時間（以後は倍々、最大60秒）。</summary>
+    public int UpstreamRetryMs { get; set; } = 2000;
 
     /// <summary>視聴URLのパスを正規化。使える文字は英数字と - _ . ~ / のみ。不正なら "/"。</summary>
     public static string NormalizeViewPath(string? path)
@@ -59,14 +64,22 @@ public sealed class EngineOptions
 
     public void Validate()
     {
-        if (!System.Net.IPAddress.TryParse(SourceBind, out _)) throw new E2eCryptoException("bad-source-bind");
-        if (!IsLoopbackBind(SourceBind))
+        if (IsMirror)
         {
-            if (SourceTls == SourceTlsMode.Off) throw new E2eCryptoException("source-bind-needs-tls");
-            if (SourcePassword.Length < MinExternalSourcePasswordLength) throw new E2eCryptoException("source-bind-needs-strong-password");
+            var up = MirrorUrl.ToWebSocketUri(UpstreamUrl) ?? throw new E2eCryptoException("bad-upstream-url");
+            if (MirrorUrl.IsSelf(up, ViewPort, ViewPath)) throw new E2eCryptoException("upstream-is-self");
         }
-        if (string.IsNullOrEmpty(SourcePassword)) throw new E2eCryptoException("empty-source-password");
-        if (string.IsNullOrEmpty(ViewPassword)) throw new E2eCryptoException("empty-view-password");
+        else
+        {
+            if (!System.Net.IPAddress.TryParse(SourceBind, out _)) throw new E2eCryptoException("bad-source-bind");
+            if (!IsLoopbackBind(SourceBind))
+            {
+                if (SourceTls == SourceTlsMode.Off) throw new E2eCryptoException("source-bind-needs-tls");
+                if (SourcePassword.Length < MinExternalSourcePasswordLength) throw new E2eCryptoException("source-bind-needs-strong-password");
+            }
+            if (string.IsNullOrEmpty(SourcePassword)) throw new E2eCryptoException("empty-source-password");
+            if (string.IsNullOrEmpty(ViewPassword)) throw new E2eCryptoException("empty-view-password");
+        }
         ViewPath = NormalizeViewPath(ViewPath);
         Access.MaxConnPerClient = Math.Clamp(Access.MaxConnPerClient, 0, 1000);
         Access.RateWindowSec = Math.Clamp(Access.RateWindowSec, 0, 3600);
