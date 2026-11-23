@@ -84,7 +84,7 @@ internal static class MirrorTests
         T.Check("ミラーハブ: 視聴者数の上限が効く", hub.TryAddViewer(8, "d") != null && hub.TryAddViewer(8, "e") == null);
         T.Check("ミラーハブ: 不正なヘッダー・確認ブロック・フレームは拒否",
             Throws(() => hub.SetUpstream("{bad", enc.ConfirmationFrame())) == "bad-upstream-header"
-            && Throws(() => hub.SetUpstream(header, new byte[40])) == "bad-upstream-confirm"
+            && Throws(() => hub.SetUpstream(header, enc.Encrypt(FrameType.Audio, new byte[8]))) == "bad-upstream-confirm"
             && Throws(() => hub.SetUpstream(header, new byte[] { 1, 2, 3 })) == "bad-upstream-confirm"
             && Throws(() => hub.PublishRaw(new byte[5])) == "bad-upstream-frame"
             && Throws(() => hub.PublishRaw(new byte[40])) == "bad-upstream-frame");
