@@ -1,0 +1,33 @@
+name: SonarIssues
+
+# 手動実行専用。SonarQube Cloud の未解決の指摘をAPIで取得してログに出す（調査用）。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 指摘を取得して一覧表示
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -e
+          KEY=ghghuser_BatonE2E
+          BASE=https://sonarcloud.io/api/issues/search
+          Q="componentKeys=$KEY&resolved=false&ps=500"
+          curl -sS -u "$SONAR_TOKEN:" "$BASE?$Q&ps=1&facets=severities,impactSeverities,impactSoftwareQualities,types" > facets.json
+          echo "== 集計 =="; jq -c '{total, facets: [.facets[] | {property, values: [.values[] | "\(.val)=\(.count)"]}]}' facets.json
+          curl -sS -u "$SONAR_TOKEN:" "$BASE?$Q&p=1" > p1.json
+          curl -sS -u "$SONAR_TOKEN:" "$BASE?$Q&p=2" > p2.json
+          jq -s '[.[].issues[]]' p1.json p2.json > issues.json
+          echo "== 一覧（重大度順） =="
+          jq -r 'sort_by(.severity) | .[] | [.severity, (.impacts|map(.softwareQuality+":"+.severity)|join(",")), .rule, (.component|sub("^[^:]*:";"")), (.line|tostring), .message] | @tsv' issues.json \
+            | awk -F'\t' 'BEGIN{o["BLOCKER"]=1;o["CRITICAL"]=2;o["MAJOR"]=3;o["MINOR"]=4;o["INFO"]=5} {print o[$1] "\t" $0}' | sort -n | cut -f2-
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sonar-issues
+          path: issues.json
