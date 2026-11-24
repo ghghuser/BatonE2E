@@ -44,6 +44,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
-          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"ghghuser_BatonE2E" /o:"ghghuser" /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"ghghuser_BatonE2E" /o:"ghghuser" /d:sonar.test.inclusions="src/BatonE2E.Tests/**" /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
           dotnet build src/BatonE2E.sln
           ${{ runner.temp }}\scanner\dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"

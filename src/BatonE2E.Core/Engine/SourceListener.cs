@@ -37,7 +37,7 @@ internal sealed partial class SourceListener : IAsyncDisposable
         _listener = new TcpListener(IPAddress.Parse(_o.SourceBind), _o.SourcePort);
         _listener.Start();
         AppLog.Info(Loc.Get("log.source.listen", _o.SourceBind, _o.SourcePort));
-        _loop = Task.Run(AcceptLoopAsync);
+        _loop = Task.Run(AcceptLoopAsync, _cts.Token);
     }
 
     private async Task AcceptLoopAsync()
@@ -47,7 +47,7 @@ internal sealed partial class SourceListener : IAsyncDisposable
             while (!_cts.IsCancellationRequested)
             {
                 var c = await _listener!.AcceptTcpClientAsync(_cts.Token);
-                _ = Task.Run(() => HandleAsync(c));
+                _ = Task.Run(() => HandleAsync(c), _cts.Token);
             }
         }
         catch (OperationCanceledException) { }
@@ -315,7 +315,7 @@ internal sealed partial class SourceListener : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        _cts.Cancel();
+        await _cts.CancelAsync();
         _listener?.Stop();
         if (_loop != null) { try { await _loop; } catch (Exception) { /* 停止時の例外は無視 */ } }
         _cts.Dispose();

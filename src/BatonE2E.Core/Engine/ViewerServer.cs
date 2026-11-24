@@ -87,7 +87,7 @@ internal sealed class ViewerServer : IAsyncDisposable
         r.Headers["Content-Security-Policy"] =
             "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
             "connect-src 'self' ws: wss:; media-src blob: mediastream:; base-uri 'none'; form-action 'none'";
-        await r.WriteAsync(LoadPage().Replace("{{TITLE}}", WebUtility.HtmlEncode(_o.PageTitle)));
+        await r.WriteAsync(LoadPage().Replace("{{TITLE}}", WebUtility.HtmlEncode(_o.PageTitle)), c.RequestAborted);
     }
 
     private string LoadPage()
@@ -141,7 +141,7 @@ internal sealed class ViewerServer : IAsyncDisposable
         AppLog.Info(Loc.Get("log.viewer.connect", remote, _hub.ViewerCount));
         _hub.Stats.RaiseViewerJoined(remote, _hub.ViewerCount);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
-        var recv = Task.Run(() => DrainIncomingAsync(ws, cts));
+        var recv = Task.Run(() => DrainIncomingAsync(ws, cts), ctx.RequestAborted);
         try
         {
             await SendAsync(ws, Encoding.UTF8.GetBytes(v.HeaderJson), WebSocketMessageType.Text, cts.Token);
@@ -158,7 +158,7 @@ internal sealed class ViewerServer : IAsyncDisposable
         catch (WebSocketException) { }
         finally
         {
-            cts.Cancel();
+            await cts.CancelAsync();
             _hub.RemoveViewer(v);
             await recv;
             await CloseQuietlyAsync(ws, v.Kicked);
@@ -187,7 +187,7 @@ internal sealed class ViewerServer : IAsyncDisposable
             }
         }
         catch (Exception ex) when (ex is OperationCanceledException or WebSocketException) { }
-        cts.Cancel();
+        await cts.CancelAsync();
     }
 
     private static async Task CloseQuietlyAsync(WebSocket ws, bool slow)

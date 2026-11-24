@@ -21,7 +21,6 @@ public static class SourceCertificate
         Directory.CreateDirectory(dir);
         var pfx = Path.Combine(dir, PfxName);
         var existed = File.Exists(pfx);
-        var expired = false;
         if (existed && !regenerate)
         {
             try
@@ -34,9 +33,8 @@ public static class SourceCertificate
                     return c;
                 }
                 c.Dispose();
-                expired = true;
             }
-            catch (CryptographicException) { expired = true; }   // 壊れている場合も作り直し
+            catch (CryptographicException) { /* 壊れている場合も作り直す */ }
         }
         ev = !existed ? CertEvent.Created
            : regenerate ? CertEvent.RegeneratedByRequest

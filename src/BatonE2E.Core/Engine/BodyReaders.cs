@@ -26,35 +26,32 @@ internal sealed class ChunkedBody : IBodyReader
 
     public async ValueTask<int> ReadAsync(Memory<byte> dst, CancellationToken ct)
     {
-        while (true)
+        if (_remaining == 0)
         {
-            if (_remaining == 0)
+            if (_done) return 0;
+            if (_needCrlf)
             {
-                if (_done) return 0;
-                if (_needCrlf)
-                {
-                    await _src.ReadLineAsync(16, ct);   // チャンク末尾のCRLF
-                    _needCrlf = false;
-                }
-                var line = await _src.ReadLineAsync(64, ct);
-                if (line == null) return 0;
-                var semi = line.IndexOf(';');
-                var hex = (semi >= 0 ? line[..semi] : line).Trim();
-                if (!int.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var size) || size < 0)
-                    throw new InvalidDataException("bad-chunk-size");
-                if (size == 0)
-                {
-                    _done = true;
-                    while (!string.IsNullOrEmpty(await _src.ReadLineAsync(1024, ct))) { /* トレーラー読み捨て */ }
-                    return 0;
-                }
-                _remaining = size;
-                _needCrlf = true;
+                await _src.ReadLineAsync(16, ct);   // チャンク末尾のCRLF
+                _needCrlf = false;
             }
-            var n = await _src.ReadAsync(dst[..Math.Min(dst.Length, _remaining)], ct);
-            if (n == 0) return 0;
-            _remaining -= n;
-            return n;
+            var line = await _src.ReadLineAsync(64, ct);
+            if (line == null) return 0;
+            var semi = line.IndexOf(';');
+            var hex = (semi >= 0 ? line[..semi] : line).Trim();
+            if (!int.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var size) || size < 0)
+                throw new InvalidDataException("bad-chunk-size");
+            if (size == 0)
+            {
+                _done = true;
+                while (!string.IsNullOrEmpty(await _src.ReadLineAsync(1024, ct))) { /* トレーラー読み捨て */ }
+                return 0;
+            }
+            _remaining = size;
+            _needCrlf = true;
         }
+        var n = await _src.ReadAsync(dst[..Math.Min(dst.Length, _remaining)], ct);
+        if (n == 0) return 0;
+        _remaining -= n;
+        return n;
     }
 }

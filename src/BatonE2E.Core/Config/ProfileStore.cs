@@ -13,7 +13,13 @@ public static class ProfileStore
 
     public static string Dir(string configPath) => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(configPath))!, "profiles");
 
-    private static string FileOf(string configPath, string name) => Path.Combine(Dir(configPath), name + Ext);
+    /// <summary>名前→ファイルのパス。ディレクトリ成分を含む名前は受け付けない（パストラバーサル対策）。</summary>
+    private static string FileOf(string configPath, string name)
+    {
+        var safe = Path.GetFileName(name);
+        if (safe.Length == 0 || safe != name) throw new ArgumentException("profile-name", nameof(name));
+        return Path.Combine(Dir(configPath), safe + Ext);
+    }
 
     /// <summary>名前の前後の空白を除く。</summary>
     public static string Clean(string? name) => (name ?? "").Trim();

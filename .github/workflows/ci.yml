@@ -87,8 +87,8 @@ jobs:
           exit $fail
       - name: Chromiumで実再生
         run: |
-          cd "$RUNNER_TEMP/work" && npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null
-          npx playwright install --with-deps chromium >/dev/null
+          cd "$RUNNER_TEMP/work" && npm init -y >/dev/null && npm i --ignore-scripts playwright@1.49.1 >/dev/null
+          npx --no-install playwright install --with-deps chromium >/dev/null
           ffmpeg -loglevel error -re -stream_loop -1 -f lavfi -i "sine=frequency=440" -t 120 -ar 44100 -ac 2 -b:a 96k \
             -f mp3 -content_type audio/mpeg "icecast://source:$SRC_PASS@127.0.0.1:$SRC_PORT/stream" &
           fpid=$!; sleep 2

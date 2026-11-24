@@ -19,7 +19,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "BatonE2E-crash.log"), ex.ToString());
+            await File.WriteAllTextAsync(Path.Combine(AppContext.BaseDirectory, "BatonE2E-crash.log"), ex.ToString());
             Console.WriteLine(Loc.Get("console.fatal", ex.Message));
             if (!Console.IsInputRedirected)
             {

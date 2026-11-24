@@ -76,7 +76,8 @@ internal sealed class SourceRequest
         if (i < 0) return AuthResult.NoHeader;
         user = text[..i];
         // 判定結果が時間差に出ない比較で検査（パスワードは常に必須）
-        var userOk = anyUser | SecretEquals(user, "source");
+        var userMatch = SecretEquals(user, "source"); // 常に評価して時間差を出さない
+        var userOk = anyUser || userMatch;
         var passOk = SecretEquals(text[(i + 1)..], expectedPassword);
         if (!passOk) return AuthResult.BadPassword;
         return userOk ? AuthResult.Ok : AuthResult.BadUser;

@@ -26,7 +26,7 @@ public sealed class UpstreamClient : IAsyncDisposable
         _initialDelay = initialDelay ?? TimeSpan.FromSeconds(2);
     }
 
-    public void Start() => _loop = Task.Run(() => RunAsync(_cts.Token));
+    public void Start() => _loop = Task.Run(() => RunAsync(_cts.Token), _cts.Token);
 
     private async Task RunAsync(CancellationToken ct)
     {
@@ -87,7 +87,7 @@ public sealed class UpstreamClient : IAsyncDisposable
             {
                 r = await ws.ReceiveAsync(new ArraySegment<byte>(buf), ct);
                 if (r.MessageType == WebSocketMessageType.Close) return gotFrame;
-                ms.Write(buf, 0, r.Count);
+                await ms.WriteAsync(buf.AsMemory(0, r.Count), ct);
                 if (ms.Length > MaxMessage) throw new E2eCryptoException("upstream-message-too-large");
             } while (!r.EndOfMessage);
 
@@ -120,10 +120,10 @@ public sealed class UpstreamClient : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        _cts.Cancel();
+        await _cts.CancelAsync();
         if (_loop != null)
         {
-            try { await _loop.WaitAsync(TimeSpan.FromSeconds(3)); }
+            try { await _loop.WaitAsync(TimeSpan.FromSeconds(3), CancellationToken.None); }
             catch (Exception ex) when (ex is TimeoutException or OperationCanceledException) { /* 終了時は待ち切らない */ }
         }
         _cts.Dispose();

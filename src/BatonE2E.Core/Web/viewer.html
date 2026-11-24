@@ -164,7 +164,7 @@ function fail(e){
   stopped=true;if(ws){ws.onclose=null;try{ws.close();}catch{}ws=null;}
   clearTimeout(retryTimer);
   setErr(e.message);setStatus("","");$("stopBtn").hidden=true;
-  $("retry").hidden=!(e.retry);$("go").disabled=false;
+  $("retry").hidden = !e.retry;$("go").disabled=false;
 }
 function connect(){
   clearTimeout(retryTimer);setErr("");setStatus(T.connecting);

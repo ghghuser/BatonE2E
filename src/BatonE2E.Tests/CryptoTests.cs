@@ -16,7 +16,9 @@ internal static class CryptoTests
 
         T.Check("ヘッダー: JSON往復", header.V == 1 && header.Kdf == "PBKDF2-SHA256" && header.Iter == Iter && header.Mime == "audio/mpeg");
         T.Check("確認ブロック: 正しいパスワードで検証成功", dec.VerifyConfirmation(enc.ConfirmationFrame()));
-        T.Check("確認ブロック: 同じ暗号文を再送できる", enc.ConfirmationFrame().SequenceEqual(enc.ConfirmationFrame()));
+        var frame1 = enc.ConfirmationFrame();
+        var frame2 = enc.ConfirmationFrame();
+        T.Check("確認ブロック: 同じ暗号文を再送できる", frame1.SequenceEqual(frame2));
 
         using var bad = FrameDecryptor.Create("wrong password", header);
         T.Check("確認ブロック: 誤パスワードは失敗", !bad.VerifyConfirmation(enc.ConfirmationFrame()));
