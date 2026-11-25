@@ -31,7 +31,7 @@ public partial class MainWindow
     private Button btnBrowseSound = null!, btnTestSound = null!;
     private TextBox tbSound = null!, tbUpstream = null!;
     private RadioButton rbModeRelay = null!, rbModeMirror = null!;
-    private Button btnGenSrc = null!, btnGenView = null!, btnProfileLoad = null!, btnProfileSave = null!, btnProfileDelete = null!;
+    private Button btnGenSrc = null!, btnGenView = null!, btnProfileSave = null!, btnProfileDelete = null!;
     private TextBox tbProfileName = null!;
     private ListBox lbProfiles = null!;
     private System.Windows.Controls.Primitives.Popup popProfiles = null!;
@@ -234,7 +234,7 @@ public partial class MainWindow
             VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0),
         });
 
-        tbProfileName = new TextBox { Width = 200 };
+        tbProfileName = new TextBox { Width = 200, Text = _curProfile.Length > 0 ? _curProfile : ProfileStore.DefaultName };
         var drop = new Button { Content = "▼", Padding = new Thickness(7, 3, 7, 3), Margin = new Thickness(2, 0, 0, 0), FontSize = 10 };
         var combo = HPanel(tbProfileName, drop);
         lbProfiles = new ListBox
@@ -251,9 +251,9 @@ public partial class MainWindow
         lbProfiles.SelectionChanged += (_, _) =>
         {
             if (lbProfiles.SelectedItem is not string n) return;
-            tbProfileName.Text = n;
             popProfiles.IsOpen = false;
             lbProfiles.SelectedItem = null;
+            SwitchProfile(n);
         };
         drop.Click += (_, _) =>
         {
@@ -266,10 +266,8 @@ public partial class MainWindow
         row.Children.Add(combo);
 
         btnProfileSave = ProfileButton("gui.profile.save", OnProfileSave);
-        btnProfileLoad = ProfileButton("gui.profile.load", OnProfileLoad);
         btnProfileDelete = ProfileButton("gui.profile.delete", OnProfileDelete);
         row.Children.Add(btnProfileSave);
-        row.Children.Add(btnProfileLoad);
         row.Children.Add(btnProfileDelete);
         row.Children.Add(Info("gui.tip.profile", Array.Empty<object>()));
         _fields["Profile"] = new List<Control> { tbProfileName };
@@ -566,6 +564,7 @@ public partial class MainWindow
         if (ns.Theme != _set.Theme) AppTheme.Apply(ns.Theme);
         _set = ns;
         _curProfile = ns.CurrentProfile;
+        tbProfileName.Text = _curProfile;
         LoadUi(ns);
         UpdateSecBanner();
         UpdateSourceCard();

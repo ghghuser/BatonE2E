@@ -21,48 +21,65 @@ public partial class MainWindow
         if (_fields.TryGetValue("Profile", out var arr)) foreach (var c in arr) c.BorderBrush = _errBrush;
     }
 
+    /// <summary>いま使っているプロファイルの表示名（まだ保存していなければ「既定」）。</summary>
+    private string CurrentProfileName => _curProfile.Length > 0 ? _curProfile : ProfileStore.DefaultName;
+
+    /// <summary>入力欄の名前で保存する。現在のプロファイルと同じ名前なら上書き、違う名前なら新しいプロファイルを作り、以後それを使う。
+    /// 下の「保存」と同じく全体の設定も保存する。</summary>
     private void OnProfileSave(object sender, RoutedEventArgs e)
     {
         ClearMarks();
         var name = ProfileStore.Clean(tbProfileName.Text);
         var nameIssue = ProfileStore.CheckName(name);
         if (nameIssue != null) { ProfileError(nameIssue.Key, nameIssue.Args); return; }
-        var ns = ReadUi(out var issue);
-        issue ??= ns.Check();
-        if (issue != null) { ShowIssue(issue); return; }
-        try
+        if (name != CurrentProfileName && ProfileStore.Exists(App.ConfigPath, name)
+            && !ConfirmDialog.Ask(this, Loc.Get("gui.profile.confirm.overwrite", name), Loc.Get("gui.profile.title"), false))
         {
-            if (ProfileStore.Exists(App.ConfigPath, name)
-                && !ConfirmDialog.Ask(this, Loc.Get("gui.profile.confirm.overwrite", name), Loc.Get("gui.profile.title"), false))
-            {
-                SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
-                return;
-            }
-            ProfileStore.Save(App.ConfigPath, name, ns);
+            SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
+            return;
         }
+        var prev = _curProfile;
+        _curProfile = name;
+        OnSave(sender, e);
+        if (_set.CurrentProfile != name)   // 検査・確認・書き込みのどれかで保存されなかった
+        {
+            _curProfile = prev;
+            tbProfileName.Text = CurrentProfileName;
+            return;
+        }
+        RefreshProfiles();
+        SetMsg(Loc.Get("gui.profile.saved", name) + (_engine != null ? "\n" + Loc.Get("gui.set.saved.running", DateTime.Now.ToString("HH:mm:ss")) : ""), Msg.Ok);
+    }
+
+    /// <summary>別のプロファイルへ切り替える（一覧から選んだとき）。未保存の変更があれば破棄してよいか確認する。切り替えた名前はすぐ config.json に記録する。</summary>
+    private void SwitchProfile(string name, bool skipConfirm = false, bool quiet = false)
+    {
+        ClearMarks();
+        var cur = CurrentProfileName;
+        tbProfileName.Text = cur;
+        if (name == cur) return;
+        if (ProfileStore.CheckName(name) != null || !ProfileStore.Exists(App.ConfigPath, name)) { ProfileError("gui.profile.err.none", name); return; }
+        if (!skipConfirm && ReadUi(out _).ToJson() != _set.ToJson()
+            && !ConfirmDialog.Ask(this, Loc.Get("gui.profile.confirm.discard", cur), Loc.Get("gui.profile.title"), false))
+        {
+            SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
+            return;
+        }
+        var p = ProfileStore.Load(App.ConfigPath, name, _set);
+        if (p == null) { ProfileError("gui.profile.err.broken", name); return; }
+        try { p.Save(App.ConfigPath); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             ProfileError("gui.profile.err.io", ex.Message);
             return;
         }
-        _curProfile = name;
-        RefreshProfiles();
-        tbProfileName.Text = name;
-        SetMsg(Loc.Get("gui.profile.saved", name), Msg.Ok);
-    }
-
-    private void OnProfileLoad(object sender, RoutedEventArgs e)
-    {
-        ClearMarks();
-        var name = ProfileStore.Clean(tbProfileName.Text);
-        var nameIssue = ProfileStore.CheckName(name);
-        if (nameIssue != null) { ProfileError(nameIssue.Key, nameIssue.Args); return; }
-        if (!ProfileStore.Exists(App.ConfigPath, name)) { ProfileError("gui.profile.err.none", name); return; }
-        var p = ProfileStore.Load(App.ConfigPath, name, _set);
-        if (p == null) { ProfileError("gui.profile.err.broken", name); return; }
-        _curProfile = name;
+        _set = p;
+        _curProfile = p.CurrentProfile;
+        tbProfileName.Text = _curProfile;
         LoadUi(p);
-        SetMsg(Loc.Get("gui.profile.loaded", name), Msg.Warn);
+        UpdateSecBanner();
+        UpdateSourceCard();
+        if (!quiet) SetMsg(Loc.Get(_engine != null ? "gui.profile.switched.running" : "gui.profile.switched", name), Msg.Ok);
     }
 
     private void OnProfileDelete(object sender, RoutedEventArgs e)
@@ -77,9 +94,17 @@ public partial class MainWindow
             SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
             return;
         }
+        var wasCurrent = name == CurrentProfileName;
         if (!ProfileStore.Delete(App.ConfigPath, name)) { ProfileError("gui.profile.err.io", name); return; }
         RefreshProfiles();
-        tbProfileName.Text = "";
+        if (wasCurrent)
+        {
+            // 使っていたものを消したら、残っている先頭のプロファイルへ移る。無ければ入力内容のまま「既定」として使う
+            var next = ProfileStore.List(App.ConfigPath).FirstOrDefault();
+            if (next != null) SwitchProfile(next, skipConfirm: true, quiet: true);
+            else { _curProfile = ""; tbProfileName.Text = CurrentProfileName; }
+        }
+        else tbProfileName.Text = CurrentProfileName;
         SetMsg(Loc.Get("gui.profile.deleted", name), Msg.Ok);
     }
 }
