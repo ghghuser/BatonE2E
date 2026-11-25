@@ -45,6 +45,7 @@ public partial class MainWindow
             ProfileError("gui.profile.err.io", ex.Message);
             return;
         }
+        _curProfile = name;
         RefreshProfiles();
         tbProfileName.Text = name;
         SetMsg(Loc.Get("gui.profile.saved", name), Msg.Ok);
@@ -59,6 +60,7 @@ public partial class MainWindow
         if (!ProfileStore.Exists(App.ConfigPath, name)) { ProfileError("gui.profile.err.none", name); return; }
         var p = ProfileStore.Load(App.ConfigPath, name, _set);
         if (p == null) { ProfileError("gui.profile.err.broken", name); return; }
+        _curProfile = name;
         LoadUi(p);
         SetMsg(Loc.Get("gui.profile.loaded", name), Msg.Warn);
     }

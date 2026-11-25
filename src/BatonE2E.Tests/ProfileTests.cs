@@ -23,6 +23,8 @@ internal static class ProfileTests
             var l = ProfileStore.Load(cfg, "夜の配信用", cur);
             T.Check("プロファイル: 内容を読み込める", l != null && l.SourcePort == 9100 && l.ViewPort == 9200 && l.PageTitle == "夜の配信");
             T.Check("プロファイル: 言語・ログ出力・トレイ格納は現在の値のまま", l != null && l.Language == "ja" && !l.LogToFile && l.MinimizeToTray && l.NotifySound == "keep.mp3" && !l.NotifySoundEnabled && l.Theme == "light");
+            T.Check("プロファイル: 読み込むと現在のプロファイル名になる", l != null && l.CurrentProfile == "夜の配信用");
+            T.Check("プロファイル: ファイルに全体設定は入らない", !File.ReadAllText(Path.Combine(ProfileStore.Dir(cfg), "夜の配信用.json")).Contains("Language"));
             T.Check("プロファイル: 無い名前は null", ProfileStore.Load(cfg, "Nothing", cur) == null);
 
             ProfileStore.Save(cfg, "Home", new AppSettings { SourcePort = 9400 });

@@ -458,6 +458,7 @@ public partial class MainWindow
             MinimizeToTray = chkTray.IsChecked == true,
             NotifySound = tbSound.Text,
             NotifySoundEnabled = chkSoundOn.IsChecked == true,
+            CurrentProfile = _curProfile,
             Theme = cbTheme.SelectedIndex switch { 1 => "light", 2 => "dark", _ => "auto" },
         };
         s.Normalize();
@@ -564,6 +565,7 @@ public partial class MainWindow
         var langChanged = Loc.Resolve(ns.Language) != Loc.Language;
         if (ns.Theme != _set.Theme) AppTheme.Apply(ns.Theme);
         _set = ns;
+        _curProfile = ns.CurrentProfile;
         LoadUi(ns);
         UpdateSecBanner();
         UpdateSourceCard();
@@ -577,8 +579,10 @@ public partial class MainWindow
     private void OnRestore(object sender, RoutedEventArgs e)
     {
         ClearMarks();
-        var b = AppSettings.LoadLatestBackup(App.ConfigPath);
+        var b = AppSettings.LoadLatestBackup(App.ConfigPath, _curProfile);
         if (b == null) { SetMsg(Loc.Get("gui.set.nobackup"), Msg.Warn); return; }
+        b.CopyGlobalsFrom(_set);
+        b.CurrentProfile = _curProfile;
         LoadUi(b);
         SetMsg(Loc.Get("gui.set.restored"), Msg.Warn);
     }

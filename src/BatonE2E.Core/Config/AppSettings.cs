@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using BatonE2E.Core.Engine;
 using BatonE2E.Core.Security;
 
@@ -43,6 +44,8 @@ public sealed class AppSettings
     public bool NotifySoundEnabled { get; set; } = true;
     /// <summary>画面の配色。auto=OSに合わせる / light / dark。</summary>
     public string Theme { get; set; } = "auto";
+    /// <summary>いま使っているプロファイルの名前（全体の設定。config.json に保存）。空なら保存時に「既定」。</summary>
+    public string CurrentProfile { get; set; } = "";
     public static readonly string[] SoundExtensions = { ".wav", ".mp3", ".wma" };
 
     // ---- 視聴側のアクセス制御 ----
@@ -98,6 +101,7 @@ public sealed class AppSettings
         RateWindowSec = Math.Clamp(RateWindowSec, 0, 3600);
         RateMaxRequests = Math.Clamp(RateMaxRequests, 0, 100000);
         RateBanSec = Math.Clamp(RateBanSec, 0, 86400);
+        CurrentProfile = ProfileStore.CheckName(CurrentProfile) == null ? ProfileStore.Clean(CurrentProfile) : "";
         NotifySound = (NotifySound ?? "").Trim();
         if (NotifySound.Length > 260) NotifySound = "";
         DenyRules ??= "";
@@ -158,23 +162,92 @@ public sealed class AppSettings
         return w;
     }
 
-    /// <summary>読み込む。無ければ既定値。壊れていれば壊れたファイルを退避して既定値（warnedに理由）。</summary>
-    public static AppSettings Load(string path, out bool corrupted)
+    /// <summary>全体の設定として config.json に保存する項目（これ以外は profiles/名前.json に保存）。</summary>
+    internal static readonly string[] GlobalKeys =
+        { nameof(Language), nameof(Theme), nameof(LogToFile), nameof(MinimizeToTray), nameof(NotifySound), nameof(NotifySoundEnabled), nameof(CurrentProfile) };
+
+    private JsonObject ToNode() => (JsonObject)JsonSerializer.SerializeToNode(this, Json)!;
+
+    /// <summary>全体の設定（言語・テーマ・ログ・トレイ・通知音）を other の値にそろえる。プロファイルを読み込んだとき、全体の設定は今のまま保つために使う。</summary>
+    public void CopyGlobalsFrom(AppSettings other)
     {
-        corrupted = false;
-        if (!File.Exists(path)) return new AppSettings();
-        try
-        {
-            var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), Json) ?? new AppSettings();
-            s.Normalize();
-            return s;
-        }
+        Language = other.Language;
+        LogToFile = other.LogToFile;
+        MinimizeToTray = other.MinimizeToTray;
+        NotifySound = other.NotifySound;
+        NotifySoundEnabled = other.NotifySoundEnabled;
+        Theme = other.Theme;
+    }
+
+    /// <summary>プロファイルに保存する内容（全体の設定を除く）。</summary>
+    public string ProfileJson()
+    {
+        var o = ToNode();
+        foreach (var k in GlobalKeys) o.Remove(k);
+        return o.ToJsonString(Json);
+    }
+
+    /// <summary>config.json に保存する内容（全体の設定と現在のプロファイル名だけ）。</summary>
+    public string GlobalJson()
+    {
+        var o = ToNode();
+        var g = new JsonObject();
+        foreach (var k in GlobalKeys)
+            if (o.TryGetPropertyValue(k, out var v)) { o.Remove(k); g[k] = v; }
+        return g.ToJsonString(Json);
+    }
+
+    private static JsonObject? ReadObject(string file, ref bool corrupted)
+    {
+        try { return JsonNode.Parse(File.ReadAllText(file)) as JsonObject ?? throw new JsonException("not-object"); }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
             corrupted = true;
-            try { File.Copy(path, path + ".broken-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"), true); } catch { /* 退避失敗は無視 */ }
-            return new AppSettings();
+            try { File.Copy(file, file + ".broken-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"), true); } catch { /* 退避失敗は無視 */ }
+            return null;
         }
+    }
+
+    /// <summary>読み込む。config.json（全体の設定＋現在のプロファイル名）と、現在のプロファイルを合わせた設定を返す。
+    /// 無ければ既定値。壊れていれば壊れたファイルを退避して既定値（corrupted=true）。</summary>
+    public static AppSettings Load(string path, out bool corrupted) => Load(path, out corrupted, out _);
+
+    /// <summary>上と同じ。旧形式（config.json に全項目がある）なら「既定」プロファイルへ移して書き直し、その名前を migratedTo に返す。</summary>
+    public static AppSettings Load(string path, out bool corrupted, out string? migratedTo)
+    {
+        corrupted = false;
+        migratedTo = null;
+        if (!File.Exists(path)) return new AppSettings();
+        var root = ReadObject(path, ref corrupted);
+        if (root == null) return new AppSettings();
+
+        if (root["CurrentProfile"] is JsonValue cv && cv.TryGetValue<string>(out var cur) && ProfileStore.CheckName(cur) == null)
+        {
+            cur = ProfileStore.Clean(cur);
+            var merged = new JsonObject();
+            var pf = ProfileStore.FileOf(path, cur);
+            if (File.Exists(pf) && ReadObject(pf, ref corrupted) is { } po) merged = po;
+            foreach (var kv in root) merged[kv.Key] = kv.Value?.DeepClone();   // 全体の設定を優先
+            var s = merged.Deserialize<AppSettings>(Json) ?? new AppSettings();
+            s.CurrentProfile = cur;
+            s.Normalize();
+            return s;
+        }
+
+        // 旧形式: 全項目が config.json にある → 「既定」プロファイルへ移す（移行前の config.json は backup へ退避）
+        var legacy = root.Deserialize<AppSettings>(Json) ?? new AppSettings();
+        legacy.Normalize();
+        legacy.CurrentProfile = ProfileStore.UniqueName(path, ProfileStore.DefaultName);
+        try
+        {
+            var bdir = BackupDir(path);
+            Directory.CreateDirectory(bdir);
+            File.Copy(path, Path.Combine(bdir, "config-premigrate-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fffffff") + ".json"), true);
+            legacy.Save(path);
+            migratedTo = legacy.CurrentProfile;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* 書けなくても設定は使える。次の保存で移る */ }
+        return legacy;
     }
 
     /// <summary>読み込むだけ（ファイルは触らない）。無い・壊れていれば null。</summary>
@@ -191,50 +264,53 @@ public sealed class AppSettings
 
     public string ToJson() => JsonSerializer.Serialize(this, Json);
 
-    /// <summary>保存。既存ファイルと内容が違うときは backup フォルダへ複製（直近 BackupKeep 件）。原子的に書き込み。</summary>
+    /// <summary>保存。現在のプロファイル（profiles/名前.json。名前が無ければ「既定」）へ中継・鏡の設定を、config.json へ全体の設定と現在のプロファイル名を書く。
+    /// 既存と内容が違うときはそれぞれ backup へ複製（直近 BackupKeep 件）。原子的に書き込み。</summary>
     public void Save(string path)
     {
         Normalize();
-        var json = ToJson();
-        var dir = Path.GetDirectoryName(Path.GetFullPath(path))!;
-        Directory.CreateDirectory(dir);
-        if (File.Exists(path))
+        CurrentProfile = ProfileStore.CheckName(CurrentProfile) == null ? ProfileStore.Clean(CurrentProfile) : ProfileStore.DefaultName;
+        WriteWithBackup(ProfileStore.FileOf(path, CurrentProfile), ProfileJson(), ProfileStore.BackupDirOf(path, CurrentProfile), "profile-");
+        WriteWithBackup(path, GlobalJson(), BackupDir(path), "config-");
+    }
+
+    /// <summary>target へ原子的に書く。既存と内容が違えば、古い内容を bdir に prefix+時刻.json で残す（直近 BackupKeep 件）。</summary>
+    internal static void WriteWithBackup(string target, string json, string bdir, string prefix)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target))!);
+        if (File.Exists(target))
         {
             string old = "";
-            try { old = File.ReadAllText(path); } catch (IOException) { }
+            try { old = File.ReadAllText(target); } catch (IOException) { }
             if (old != json && old.Length > 0)
             {
-                var bdir = BackupDir(path);
                 Directory.CreateDirectory(bdir);
                 var at = DateTime.Now;
-                string target;
-                do { target = Path.Combine(bdir, "config-" + at.ToString("yyyyMMdd-HHmmss-fffffff") + ".json"); at = at.AddTicks(1); }
-                while (File.Exists(target));
-                File.WriteAllText(target, old);
-                foreach (var f in Directory.GetFiles(bdir, "config-*.json").OrderByDescending(x => x).Skip(BackupKeep))
+                string dest;
+                do { dest = Path.Combine(bdir, prefix + at.ToString("yyyyMMdd-HHmmss-fffffff") + ".json"); at = at.AddTicks(1); }
+                while (File.Exists(dest));
+                File.WriteAllText(dest, old);
+                foreach (var f in Directory.GetFiles(bdir, prefix + "*.json").OrderByDescending(x => x).Skip(BackupKeep))
                     try { File.Delete(f); } catch (IOException) { }
             }
         }
-        var tmp = path + ".tmp";
+        var tmp = target + ".tmp";
         File.WriteAllText(tmp, json);
-        File.Move(tmp, path, true);
+        File.Move(tmp, target, true);
     }
 
     public static string BackupDir(string path) => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, "backup");
 
-    /// <summary>最新のバックアップの内容を読み出す（無ければ null）。ファイルは書き換えない。</summary>
-    public static AppSettings? LoadLatestBackup(string path)
+    /// <summary>指定プロファイルの最新のバックアップの内容を読み出す（無ければ null）。ファイルは書き換えない。全体の設定は含まない。</summary>
+    public static AppSettings? LoadLatestBackup(string path, string profileName)
     {
-        var bdir = BackupDir(path);
+        if (ProfileStore.CheckName(profileName) != null) return null;
+        var bdir = ProfileStore.BackupDirOf(path, ProfileStore.Clean(profileName));
         if (!Directory.Exists(bdir)) return null;
-        foreach (var f in Directory.GetFiles(bdir, "config-*.json").OrderByDescending(x => x))
+        foreach (var f in Directory.GetFiles(bdir, "profile-*.json").OrderByDescending(x => x))
         {
-            try
-            {
-                var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(f), Json);
-                if (s != null) { s.Normalize(); return s; }
-            }
-            catch (JsonException) { }
+            var s = TryRead(f);
+            if (s != null) return s;
         }
         return null;
     }

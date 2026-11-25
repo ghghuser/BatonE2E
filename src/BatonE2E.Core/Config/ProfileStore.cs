@@ -14,11 +14,23 @@ public static class ProfileStore
     public static string Dir(string configPath) => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(configPath))!, "profiles");
 
     /// <summary>名前→ファイルのパス。ディレクトリ成分を含む名前は受け付けない（パストラバーサル対策）。</summary>
-    private static string FileOf(string configPath, string name)
+    public const string DefaultName = "既定";
+
+    internal static string FileOf(string configPath, string name)
     {
         var safe = Path.GetFileName(name);
         if (safe.Length == 0 || safe != name) throw new ArgumentException("profile-name", nameof(name));
         return Path.Combine(Dir(configPath), safe + Ext);
+    }
+
+    internal static string BackupDirOf(string configPath, string name) => Path.Combine(AppSettings.BackupDir(configPath), "profile-" + name);
+
+    /// <summary>既に同名のプロファイルがあれば「名前 (2)」「名前 (3)」…と、空いている名前にする。</summary>
+    public static string UniqueName(string configPath, string baseName)
+    {
+        var n = baseName;
+        for (var i = 2; File.Exists(FileOf(configPath, n)); i++) n = baseName + " (" + i + ")";
+        return n;
     }
 
     /// <summary>名前の前後の空白を除く。</summary>
@@ -52,10 +64,8 @@ public static class ProfileStore
         if (CheckName(name) != null) throw new ArgumentException("profile-name", nameof(name));
         s.Normalize();
         Directory.CreateDirectory(Dir(configPath));
-        var path = FileOf(configPath, Clean(name));
-        var tmp = path + ".tmp";
-        File.WriteAllText(tmp, s.ToJson());
-        File.Move(tmp, path, true);
+        var n = Clean(name);
+        AppSettings.WriteWithBackup(FileOf(configPath, n), s.ProfileJson(), BackupDirOf(configPath, n), "profile-");
     }
 
     /// <summary>読み込む。無い・壊れている場合は null（ファイルは触らない）。
@@ -65,12 +75,8 @@ public static class ProfileStore
         if (CheckName(name) != null) return null;
         var s = AppSettings.TryRead(FileOf(configPath, Clean(name)));
         if (s == null) return null;
-        s.Language = current.Language;
-        s.LogToFile = current.LogToFile;
-        s.MinimizeToTray = current.MinimizeToTray;
-        s.NotifySound = current.NotifySound;
-        s.NotifySoundEnabled = current.NotifySoundEnabled;
-        s.Theme = current.Theme;
+        s.CurrentProfile = Clean(name);
+        s.CopyGlobalsFrom(current);
         return s;
     }
 

@@ -22,6 +22,8 @@ public partial class MainWindow : Window
     private const int MaxLogLines = 5000;
 
     private AppSettings _set;
+    /// <summary>いま使っているプロファイル名（保存時に config.json へ記録）。</summary>
+    private string _curProfile = "";
     private RelayEngine? _engine;
     private readonly ConcurrentQueue<(LogLv Lv, string Line)> _pending = new();
     private readonly List<(LogLv Lv, string Line)> _logs = new();
@@ -34,6 +36,7 @@ public partial class MainWindow : Window
     public MainWindow(AppSettings settings, bool settingsCorrupted)
     {
         _set = settings;
+        _curProfile = settings.CurrentProfile;
         InitializeComponent();
         _okBrush = (Brush)FindResource("OkBrush");
         _errBrush = (Brush)FindResource("ErrBrush");
