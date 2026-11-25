@@ -202,8 +202,8 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 **状態の目安**: 最終確認時点 = 2026-11-24、最新コミットはこの台帳を足したコミット、CIは緑（SonarQubeも緑）。実機確認待ち: なし。利用者への未回答の質問: なし。
 
 ### A. プロファイル保存の統一（第14章A）
-- ◐ A1（着手中 2026-11-25）Core: `AppSettings`から全体設定（Language/Theme/LogToFile/MinimizeToTray/NotifySound/NotifySoundEnabled/CurrentProfile）を分け、`ProfileStore`を新構造に。旧config.jsonから「既定」プロファイルへの移行（移行前はbackupへ退避）。ProfileTests/ConfigTestsを更新・追加。CI緑。
-- ☐ A2 GUI: 上部帯を「現在のプロファイル: [▼名前]」＋［名前を付けて保存］［削除］に。切替時の未保存確認（はい/いいえ）。下の［保存］＝現在のプロファイルへ上書き＋全体設定も保存。未保存表示を合算に。プロファイル単位のバックアップ復元。
+- ☑ A1（dc1b603、CI緑）Core: `AppSettings`から全体設定（Language/Theme/LogToFile/MinimizeToTray/NotifySound/NotifySoundEnabled/CurrentProfile）を分け、`ProfileStore`を新構造に。旧config.jsonから「既定」プロファイルへの移行（移行前はbackupへ退避）。ProfileTests/ConfigTestsを更新・追加。CI緑。
+- ◐ A2（着手中 2026-11-25）GUI: 上部帯を「現在のプロファイル: [▼名前]」＋［名前を付けて保存］［削除］に。切替時の未保存確認（はい/いいえ）。下の［保存］＝現在のプロファイルへ上書き＋全体設定も保存。未保存表示を合算に。プロファイル単位のバックアップ復元。
 - ☐ A3 プロファイルを切り替え/読み込んだ結果、セキュリティを下げる設定が新たに有効になる場合の確認ダイアログ。
 - ☐ A4 ja/en.ini整合、PROJECT.md（第7章・第8章）更新、CI緑、利用者へ「実機で試すこと(5項目以内)」を報告。
 
@@ -224,5 +224,6 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 - ☐ C6 PROJECT.md・README方針更新、実機確認依頼（動画を出せる配信ソフトが必要。無ければffmpegコマンドを初心者向けに案内）。
 
 ### 台帳の更新履歴（新しいものを上に）
+- 2026-11-25: A1完了（dc1b603）。AppSettings.Save/Loadが config.json（全体設定＋CurrentProfile）と profiles/名前.json に分離。旧形式は「既定」へ自動移行。GUIは既存のまま動く最小配線のみ（_curProfile）。A2着手。
 - 2026-11-25: SonarQube指摘101→16件に修正（107262b、CI緑）。調査用 sonar-issues.yml（手動実行）を追加。A1に着手。
 - 2026-11-24: 台帳を新設。実機5項目OKを反映。Codespaces利用ルールを第3章に追記。ミラー設計の訂正（「元が落ちても入れる」は目的ではない）を第14章Bに反映。
