@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using BatonE2E.Core;
 using BatonE2E.Core.Config;
+using BatonE2E.Core.Logging;
 
 namespace BatonE2E.Gui;
 
@@ -67,6 +68,19 @@ public partial class MainWindow
         }
         var p = ProfileStore.Load(App.ConfigPath, name, _set);
         if (p == null) { ProfileError("gui.profile.err.broken", name); return; }
+        // 弱い設定のプロファイルを選んだだけで中継が弱くなるため、保存時と同じ確認を出す
+        var before = _set.SecurityWarnings();
+        var added = p.SecurityWarnings().Where(w => !before.Contains(w)).ToList();
+        if (added.Count > 0)
+        {
+            var text = Loc.Get("gui.sec.confirm", string.Join("\n", added.Select(w => "・" + Loc.Get(w))));
+            if (!ConfirmDialog.Ask(this, text, Loc.Get("gui.sec.title"), true))
+            {
+                SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
+                return;
+            }
+            foreach (var w in added) AppLog.Warn(Loc.Get("gui.sec.log", Loc.Get(w)));
+        }
         try { p.Save(App.ConfigPath); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
