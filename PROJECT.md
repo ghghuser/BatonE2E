@@ -78,7 +78,7 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 - 待ち受け: 既定127.0.0.1。`SourceBind`が127.0.0.1以外なら、TLSを「なし」にできず、sourceパスワード12文字以上が必須（Validate/Check）。
 - source TLS: auto（先頭1バイト0x16で判定）/on/off。TLS1.2・1.3。RSA2048+SHA-256自己署名、SAN=IP:127.0.0.1+DNS:localhost、10年、`tls/source.pfx`と`source.cer`に保存し再生成は期限切れか`--regen-cert`のみ（oddcast側の`ServerTLSTrustedCert`行の削除が必要）。起動時にSHA-256指紋を表示。
 - StreamHub: 暗号化と配布を同一ロックで実施。視聴者なしなら暗号化しない。有限キュー、遅い視聴者は切断。暗号化結果を自分で復号して照合する自己検査（Stats.CheckOk/CheckNg。GUIに緑/赤表示）。
-- ViewerServer(Kestrel): 視聴ページは`ViewPath`（既定`/`）、WebSocketは「パス/ws」。他のパスは404。CSPあり。`ViewerPage/viewer.html`（exeの横のViewerPageフォルダ。旧viewerフォルダ・exe横の旧位置は読まない）があれば全体差し替え、`ViewerPage/viewer.css`があれば<head>末尾へ差し込み（毎回読み直し。再起動不要）。
+- ViewerServer(Kestrel): 視聴ページは`ViewPath`（既定`/`）、WebSocketは「パス/ws」。他のパスは404。CSPは厳格（script-srcは標準スクリプトのSHA-256ハッシュだけ許可。ViewerPage/viewer.htmlに差し替えても、標準と同じスクリプトでなければ実行されず、起動時ログに警告。編集してよいのはHTML/CSSだけ。viewer.html内に「ここまで編集可」のコメントあり）。`ViewerPage/viewer.html`（exeの横のViewerPageフォルダ。旧viewerフォルダ・exe横の旧位置は読まない）があれば全体差し替え、`ViewerPage/viewer.css`があれば<head>末尾へ差し込み（毎回読み直し。再起動不要）。
 - アクセス制御(AccessControl): 全リクエストの入口で、拒否リスト(`ip:`単独/CIDR、`ua:`/`host:`は正規表現=NonBacktracking+50msタイムアウト、先読み不可、200字まで) → 連打制限(N秒にM回以上→K秒拒否、HTTP 429+Retry-After、拒否時に接続中の視聴者も切断) → WebSocketでは1人(IP)あたり同時接続数(429)。既定: 3接続/人、10秒に30回で60秒拒否。接続元は、TCP接続元がループバックの時だけ`X-Forwarded-For`の**最も右**を採用（`UseProxyHeader`、既定オン。Tailscale Funnel/ngrok対策）。ログは同一IPにつき60秒間引く。
 - 視聴ページ(viewer.html): 単一HTML。WebCrypto、MSE/ManagedMediaSource、mode='sequence'、同期位置まで読み捨て、バッファ削除、自動再接続、改ざん/連番エラーで停止、**停止ボタン**（停止→再生で再生側を作り直して最新から再開）。パスワードが違えば「パスワードが違います」。`{{TITLE}}`で題名（アプリ名は出さない）。
 ### 設定（Core/Config/AppSettings → config.json＋profiles/、exeの横）
@@ -227,6 +227,7 @@ C# / .NET 8 / WPF(GUI) / win-x64 単一ファイル・自己完結。外部ラ�
 - ☐ C6 PROJECT.md・README方針更新、実機確認依頼（動画を出せる配信ソフトが必要。無ければffmpegコマンドを初心者向けに案内）。
 
 ### 台帳の更新履歴（新しいものを上に）
+- 2026-11-26: 利用者の指示で画面を整理（e78faa7、CI緑）。プロファイル帯に［保存して反映］［別名で保存］［削除］［一つ前に戻す］を集約し下の行を廃止、ファイル系ボタンは設定タブへ。視聴ページのCSPをスクリプトのハッシュ許可に厳格化（S7039解消）。視聴URLは「確認用」、指紋は2行表示。
 - 2026-11-26: 利用者の指示で「既定」→「（なし）」（プロファイル無し。設定はconfig.jsonに全項目）、旧形式の移行コード削除（7b373ef、CI緑）。設定タブの行間統一、ログ開閉ボタンに矢印。保存ボタンの意味（「設定を反映」案）は利用者へ確認中。
 - 2026-11-25: A完了（A4文書更新）。利用者へ実機5項目を報告済み。次はB1。
 - 2026-11-25: A3完了（50d962d）。A4（文書更新・報告）着手。

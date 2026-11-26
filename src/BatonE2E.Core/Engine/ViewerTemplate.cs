@@ -31,7 +31,7 @@ public static class ViewerTemplate
     /// <summary>改行をLFにそろえる（保存し直しでCRLFになってもスクリプトのハッシュが変わらないように）。</summary>
     public static string NormalizeNewlines(string html) => html.Replace("\r\n", "\n");
 
-    private static readonly Regex ScriptRx = new(@"<script>(?<s>[\s\S]*?)</script>", RegexOptions.Compiled);
+    private static readonly Regex ScriptRx = new(@"<script>(?<s>[\s\S]*?)</script>", RegexOptions.Compiled, TimeSpan.FromSeconds(2));
 
     /// <summary>ページ内の最初の属性なし&lt;script&gt;の内容のCSPハッシュ（'sha256-…'）。無ければ null。</summary>
     public static string? ScriptHashOf(string html)
