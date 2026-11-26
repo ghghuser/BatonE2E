@@ -21,6 +21,9 @@ public partial class MainWindow : Window
 {
     private const int MaxLogLines = 5000;
 
+    /// <summary>ログの開閉ボタンの文字。閉じていれば「ログ ▶」（右へ開く）、開いていれば「ログ ◀」（しまう）。</summary>
+    private void UpdateLogToggle() => tglLog.Content = Loc.Get("gui.tab.log") + (tglLog.IsChecked == true ? "  ◀" : "  ▶");
+
     private AppSettings _set;
     /// <summary>いま使っているプロファイル名（保存時に config.json へ記録）。</summary>
     private string _curProfile = "";
@@ -47,7 +50,7 @@ public partial class MainWindow : Window
 
         // 文言
         rbMain.Content = Loc.Get("gui.tab.main");
-        tglLog.Content = Loc.Get("gui.tab.log");
+        UpdateLogToggle();
         rbRelay.Content = Loc.Get("gui.tab.relay");
         rbMirror.Content = Loc.Get("gui.tab.mirror");
         rbSystem.Content = Loc.Get("gui.tab.system");
@@ -77,8 +80,8 @@ public partial class MainWindow : Window
         rbRelay.Checked += (_, _) => ShowPanel(1);
         rbMirror.Checked += (_, _) => ShowPanel(2);
         rbSystem.Checked += (_, _) => ShowPanel(3);
-        tglLog.Checked += (_, _) => SetLogOpen(true);
-        tglLog.Unchecked += (_, _) => SetLogOpen(false);
+        tglLog.Checked += (_, _) => { UpdateLogToggle(); SetLogOpen(true); };
+        tglLog.Unchecked += (_, _) => { UpdateLogToggle(); SetLogOpen(false); };
         rbLogAll.Checked += (_, _) => RebuildLog();
         rbLogWarn.Checked += (_, _) => RebuildLog();
         btnStartStop.Click += OnStartStop;

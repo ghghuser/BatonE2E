@@ -208,15 +208,12 @@ public sealed class AppSettings
         }
     }
 
-    /// <summary>読み込む。config.json（全体の設定＋現在のプロファイル名）と、現在のプロファイルを合わせた設定を返す。
+    /// <summary>読み込む。config.json に現在のプロファイル名があれば、そのプロファイル（profiles/名前.json）と合わせた設定を返す（全体の設定は config.json を優先）。
+    /// プロファイル名が無ければ（＝「（なし）」）config.json の全項目をそのまま読む。
     /// 無ければ既定値。壊れていれば壊れたファイルを退避して既定値（corrupted=true）。</summary>
-    public static AppSettings Load(string path, out bool corrupted) => Load(path, out corrupted, out _);
-
-    /// <summary>上と同じ。旧形式（config.json に全項目がある）なら「既定」プロファイルへ移して書き直し、その名前を migratedTo に返す。</summary>
-    public static AppSettings Load(string path, out bool corrupted, out string? migratedTo)
+    public static AppSettings Load(string path, out bool corrupted)
     {
         corrupted = false;
-        migratedTo = null;
         if (!File.Exists(path)) return new AppSettings();
         var root = ReadObject(path, ref corrupted);
         if (root == null) return new AppSettings();
@@ -234,20 +231,10 @@ public sealed class AppSettings
             return s;
         }
 
-        // 旧形式: 全項目が config.json にある → 「既定」プロファイルへ移す（移行前の config.json は backup へ退避）
-        var legacy = root.Deserialize<AppSettings>(Json) ?? new AppSettings();
-        legacy.Normalize();
-        legacy.CurrentProfile = ProfileStore.UniqueName(path, ProfileStore.DefaultName);
-        try
-        {
-            var bdir = BackupDir(path);
-            Directory.CreateDirectory(bdir);
-            File.Copy(path, Path.Combine(bdir, "config-premigrate-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fffffff") + ".json"), true);
-            legacy.Save(path);
-            migratedTo = legacy.CurrentProfile;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* 書けなくても設定は使える。次の保存で移る */ }
-        return legacy;
+        var none = root.Deserialize<AppSettings>(Json) ?? new AppSettings();
+        none.CurrentProfile = "";
+        none.Normalize();
+        return none;
     }
 
     /// <summary>読み込むだけ（ファイルは触らない）。無い・壊れていれば null。</summary>
@@ -264,12 +251,16 @@ public sealed class AppSettings
 
     public string ToJson() => JsonSerializer.Serialize(this, Json);
 
-    /// <summary>保存。現在のプロファイル（profiles/名前.json。名前が無ければ「既定」）へ中継・鏡の設定を、config.json へ全体の設定と現在のプロファイル名を書く。
-    /// 既存と内容が違うときはそれぞれ backup へ複製（直近 BackupKeep 件）。原子的に書き込み。</summary>
+    /// <summary>保存。プロファイルを使っていれば、そのプロファイル（profiles/名前.json）へ中継・鏡の設定を、config.json へ全体の設定と現在のプロファイル名を書く。
+    /// プロファイルが「（なし）」なら config.json に全項目を書く。既存と内容が違うときはそれぞれ backup へ複製（直近 BackupKeep 件）。原子的に書き込み。</summary>
     public void Save(string path)
     {
         Normalize();
-        CurrentProfile = ProfileStore.CheckName(CurrentProfile) == null ? ProfileStore.Clean(CurrentProfile) : ProfileStore.DefaultName;
+        if (CurrentProfile.Length == 0)
+        {
+            WriteWithBackup(path, ToJson(), BackupDir(path), "config-");
+            return;
+        }
         WriteWithBackup(ProfileStore.FileOf(path, CurrentProfile), ProfileJson(), ProfileStore.BackupDirOf(path, CurrentProfile), "profile-");
         WriteWithBackup(path, GlobalJson(), BackupDir(path), "config-");
     }
@@ -301,14 +292,16 @@ public sealed class AppSettings
 
     public static string BackupDir(string path) => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, "backup");
 
-    /// <summary>指定プロファイルの最新のバックアップの内容を読み出す（無ければ null）。ファイルは書き換えない。全体の設定は含まない。</summary>
+    /// <summary>指定プロファイル（空＝「（なし）」）の最新のバックアップの内容を読み出す（無ければ null）。ファイルは書き換えない。プロファイルのバックアップには全体の設定は含まれない。</summary>
     public static AppSettings? LoadLatestBackup(string path, string profileName)
     {
-        if (ProfileStore.CheckName(profileName) != null) return null;
-        var bdir = ProfileStore.BackupDirOf(path, ProfileStore.Clean(profileName));
+        var none = profileName.Length == 0;
+        if (!none && ProfileStore.CheckName(profileName) != null) return null;
+        var bdir = none ? BackupDir(path) : ProfileStore.BackupDirOf(path, ProfileStore.Clean(profileName));
         if (!Directory.Exists(bdir)) return null;
-        foreach (var f in Directory.GetFiles(bdir, "profile-*.json").OrderByDescending(x => x))
+        foreach (var f in Directory.GetFiles(bdir, none ? "config-*.json" : "profile-*.json").OrderByDescending(x => x))
         {
+            if (none && !File.ReadAllText(f).Contains("\"SourcePort\"")) continue;   // 全体設定だけのバックアップは除く
             var s = TryRead(f);
             if (s != null) return s;
         }

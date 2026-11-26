@@ -14,8 +14,6 @@ public static class ProfileStore
     public static string Dir(string configPath) => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(configPath))!, "profiles");
 
     /// <summary>名前→ファイルのパス。ディレクトリ成分を含む名前は受け付けない（パストラバーサル対策）。</summary>
-    public const string DefaultName = "既定";
-
     internal static string FileOf(string configPath, string name)
     {
         var safe = Path.GetFileName(name);
@@ -25,13 +23,10 @@ public static class ProfileStore
 
     internal static string BackupDirOf(string configPath, string name) => Path.Combine(AppSettings.BackupDir(configPath), "profile-" + name);
 
-    /// <summary>既に同名のプロファイルがあれば「名前 (2)」「名前 (3)」…と、空いている名前にする。</summary>
-    public static string UniqueName(string configPath, string baseName)
-    {
-        var n = baseName;
-        for (var i = 2; File.Exists(FileOf(configPath, n)); i++) n = baseName + " (" + i + ")";
-        return n;
-    }
+    /// <summary>「プロファイルを使わない」状態の表示名と同じ名前（作れない）。</summary>
+    private static readonly string[] ReservedNone = { "（なし）", "(なし)", "(None)", "（None）" };
+
+    public static bool IsNoneName(string? name) => ReservedNone.Contains(Clean(name), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>名前の前後の空白を除く。</summary>
     public static string Clean(string? name) => (name ?? "").Trim();
@@ -41,6 +36,7 @@ public static class ProfileStore
     {
         var n = Clean(name);
         if (n.Length == 0) return new("gui.profile.err.empty", "Profile", Array.Empty<object>());
+        if (IsNoneName(n)) return new("gui.profile.err.reserved", "Profile", Array.Empty<object>());
         if (n.Length > MaxNameLength) return new("gui.profile.err.long", "Profile", new object[] { MaxNameLength });
         if (n.Any(c => c < ' ' || BadChars.Contains(c)) || n.EndsWith('.') || Reserved.Contains(n.Split('.')[0].ToUpperInvariant()))
             return new("gui.profile.err.chars", "Profile", Array.Empty<object>());

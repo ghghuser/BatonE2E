@@ -35,7 +35,7 @@ internal static class ProfileTests
 
             T.Check("プロファイル: 削除できる", ProfileStore.Delete(cfg, "Home") && !ProfileStore.Exists(cfg, "Home") && !ProfileStore.Delete(cfg, "Home"));
 
-            string[] bad = { "", "   ", "a/b", "..\\x", "a:b", "con", "NUL.txt", "end.", "x\ty", new string('あ', 41) };
+            string[] bad = { "（なし）", "(None)", "", "   ", "a/b", "..\\x", "a:b", "con", "NUL.txt", "end.", "x\ty", new string('あ', 41) };
             T.Check("プロファイル: 使えない名前は拒否", bad.All(n => ProfileStore.CheckName(n) != null));
             string[] good = { "夜の配信", "Home 2", "a-b_c", new string('あ', 40) };
             T.Check("プロファイル: 普通の名前は許可", good.All(n => ProfileStore.CheckName(n) == null));

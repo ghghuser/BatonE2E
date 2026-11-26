@@ -11,8 +11,10 @@ public partial class MainWindow
 {
     private void RefreshProfiles()
     {
-        try { lbProfiles.ItemsSource = ProfileStore.List(App.ConfigPath); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { lbProfiles.ItemsSource = null; }
+        var items = new List<string> { Loc.Get("gui.profile.none") };
+        try { items.AddRange(ProfileStore.List(App.ConfigPath)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* 一覧が読めなければ「（なし）」だけ */ }
+        lbProfiles.ItemsSource = items;
     }
 
     /// <summary>プロファイル欄の問題を、名前の入力欄を赤枠にして表示する。</summary>
@@ -22,8 +24,8 @@ public partial class MainWindow
         if (_fields.TryGetValue("Profile", out var arr)) foreach (var c in arr) c.BorderBrush = _errBrush;
     }
 
-    /// <summary>いま使っているプロファイルの表示名（まだ保存していなければ「既定」）。</summary>
-    private string CurrentProfileName => _curProfile.Length > 0 ? _curProfile : ProfileStore.DefaultName;
+    /// <summary>いま使っているプロファイルの表示名（使っていなければ「（なし）」）。</summary>
+    private string CurrentProfileName => _curProfile.Length > 0 ? _curProfile : Loc.Get("gui.profile.none");
 
     /// <summary>入力欄の名前で保存する。現在のプロファイルと同じ名前なら上書き、違う名前なら新しいプロファイルを作り、以後それを使う。
     /// 下の「保存」と同じく全体の設定も保存する。</summary>
@@ -33,7 +35,7 @@ public partial class MainWindow
         var name = ProfileStore.Clean(tbProfileName.Text);
         var nameIssue = ProfileStore.CheckName(name);
         if (nameIssue != null) { ProfileError(nameIssue.Key, nameIssue.Args); return; }
-        if (name != CurrentProfileName && ProfileStore.Exists(App.ConfigPath, name)
+        if (name != _curProfile && ProfileStore.Exists(App.ConfigPath, name)
             && !ConfirmDialog.Ask(this, Loc.Get("gui.profile.confirm.overwrite", name), Loc.Get("gui.profile.title"), false))
         {
             SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
@@ -58,7 +60,15 @@ public partial class MainWindow
         ClearMarks();
         var cur = CurrentProfileName;
         tbProfileName.Text = cur;
-        if (name == cur) return;
+        if (name == _curProfile) return;
+        if (name.Length == 0)   // 「（なし）」: プロファイルを外す。入力欄の内容はそのまま（保存で config.json に全項目を書く）
+        {
+            _curProfile = "";
+            tbProfileName.Text = CurrentProfileName;
+            UpdateDirty();
+            if (!quiet) SetMsg(Loc.Get("gui.profile.detached"), Msg.Warn);
+            return;
+        }
         if (ProfileStore.CheckName(name) != null || !ProfileStore.Exists(App.ConfigPath, name)) { ProfileError("gui.profile.err.none", name); return; }
         if (!skipConfirm && ReadUi(out _).ToJson() != _set.ToJson()
             && !ConfirmDialog.Ask(this, Loc.Get("gui.profile.confirm.discard", cur), Loc.Get("gui.profile.title"), false))
@@ -108,15 +118,18 @@ public partial class MainWindow
             SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
             return;
         }
-        var wasCurrent = name == CurrentProfileName;
+        var wasCurrent = name == _curProfile;
         if (!ProfileStore.Delete(App.ConfigPath, name)) { ProfileError("gui.profile.err.io", name); return; }
         RefreshProfiles();
         if (wasCurrent)
         {
-            // 使っていたものを消したら、残っている先頭のプロファイルへ移る。無ければ入力内容のまま「既定」として使う
-            var next = ProfileStore.List(App.ConfigPath).FirstOrDefault();
-            if (next != null) SwitchProfile(next, skipConfirm: true, quiet: true);
-            else { _curProfile = ""; tbProfileName.Text = CurrentProfileName; }
+            // 使っていたものを消したら「（なし）」にする。入力欄の内容はそのまま。config.json は保存済みの内容で書き直す
+            _curProfile = "";
+            _set.CurrentProfile = "";
+            try { _set.Save(App.ConfigPath); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { ProfileError("gui.profile.err.io", ex.Message); }
+            tbProfileName.Text = CurrentProfileName;
+            UpdateDirty();
         }
         else tbProfileName.Text = CurrentProfileName;
         SetMsg(Loc.Get("gui.profile.deleted", name), Msg.Ok);

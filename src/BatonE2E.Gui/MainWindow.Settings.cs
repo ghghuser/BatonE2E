@@ -234,7 +234,7 @@ public partial class MainWindow
             VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0),
         });
 
-        tbProfileName = new TextBox { Width = 200, Text = _curProfile.Length > 0 ? _curProfile : ProfileStore.DefaultName };
+        tbProfileName = new TextBox { Width = 200, Text = CurrentProfileName };
         var drop = new Button { Content = "▼", Padding = new Thickness(7, 3, 7, 3), Margin = new Thickness(2, 0, 0, 0), FontSize = 10 };
         var combo = HPanel(tbProfileName, drop);
         lbProfiles = new ListBox
@@ -253,13 +253,12 @@ public partial class MainWindow
             if (lbProfiles.SelectedItem is not string n) return;
             popProfiles.IsOpen = false;
             lbProfiles.SelectedItem = null;
-            SwitchProfile(n);
+            SwitchProfile(n == Loc.Get("gui.profile.none") ? "" : n);
         };
         drop.Click += (_, _) =>
         {
             if ((DateTime.UtcNow - _profilePopupClosedAt).TotalMilliseconds < 250) return; // ▼を押して閉じた直後の再オープンを防ぐ
             RefreshProfiles();
-            if (lbProfiles.Items.Count == 0) { SetMsg(Loc.Get("gui.profile.empty"), Msg.Muted); return; }
             popProfiles.IsOpen = true;
         };
         combo.Children.Add(popProfiles);
@@ -308,7 +307,7 @@ public partial class MainWindow
         };
         Grid.SetRow(lbl, r);
         _g.Children.Add(lbl);
-        var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+        var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1), MinHeight = 28 };
         sp.Children.Add(input);
         if (tipKey != null) sp.Children.Add(Info(tipKey, tipArgs));
         Grid.SetRow(sp, r);
@@ -564,7 +563,7 @@ public partial class MainWindow
         if (ns.Theme != _set.Theme) AppTheme.Apply(ns.Theme);
         _set = ns;
         _curProfile = ns.CurrentProfile;
-        tbProfileName.Text = _curProfile;
+        tbProfileName.Text = CurrentProfileName;
         LoadUi(ns);
         UpdateSecBanner();
         UpdateSourceCard();
