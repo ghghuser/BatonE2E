@@ -85,17 +85,26 @@ internal sealed class ViewerServer : IAsyncDisposable
         r.Headers["X-Content-Type-Options"] = "nosniff";
         r.Headers["Referrer-Policy"] = "no-referrer";
         r.Headers["Content-Security-Policy"] =
-            "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
+            $"default-src 'none'; script-src {ViewerTemplate.StockScriptHash}; style-src 'unsafe-inline'; " +
             "connect-src 'self' ws: wss:; media-src blob: mediastream:; base-uri 'none'; form-action 'none'";
         await r.WriteAsync(LoadPage().Replace("{{TITLE}}", WebUtility.HtmlEncode(_o.PageTitle)), c.RequestAborted);
     }
 
+    private bool _scriptWarned;
+
     private string LoadPage()
     {
         // ミラーは標準の視聴ページだけを配信する（viewer.html / viewer.css による差し替えを受け付けない）
-        if (_o.IsMirror) return _embedded ??= ViewerTemplate.ReadEmbedded();
+        if (_o.IsMirror) return _embedded ??= ViewerTemplate.NormalizeNewlines(ViewerTemplate.ReadEmbedded());
         var file = _o.ViewerPageFile ?? ViewerTemplate.FindFile("viewer.html");
-        var html = file != null && File.Exists(file) ? File.ReadAllText(file, Encoding.UTF8) : (_embedded ??= ViewerTemplate.ReadEmbedded());
+        var custom = file != null && File.Exists(file);
+        var html = ViewerTemplate.NormalizeNewlines(custom ? File.ReadAllText(file!, Encoding.UTF8) : (_embedded ??= ViewerTemplate.ReadEmbedded()));
+        // CSPは標準のスクリプトだけを許可する。差し替えたページのスクリプトが標準と違えば動かないので、ログで知らせる
+        if (custom && !_scriptWarned && ViewerTemplate.ScriptHashOf(html) != ViewerTemplate.StockScriptHash)
+        {
+            _scriptWarned = true;
+            AppLog.Warn(Loc.Get("log.viewer.scriptchanged"));
+        }
         // viewer.css（viewerフォルダ）があれば、ページの<head>末尾へ差し込む（CSPの都合で外部ファイルではなく埋め込み）
         var cssFile = ViewerTemplate.FindFile("viewer.css");
         if (cssFile != null)

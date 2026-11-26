@@ -24,6 +24,7 @@ small{color:var(--sub)}
 </style>
 </head>
 <body>
+<!-- ▼ ここから </main> までは、見た目（HTML/CSS）を自由に編集できます。id="..." の付いた要素は、下のスクリプトが使うので消さないでください。 -->
 <main>
 <h1 id="h1">{{TITLE}}</h1>
 <div class="card">
@@ -41,9 +42,10 @@ small{color:var(--sub)}
 </div>
 <small id="note">音声は端末内で復号されます（AES-256-GCM）。</small>
 </main>
+<!-- ▲ 編集できるのはここまで。下の <script> は変更しないでください（変更すると、セキュリティ設定(CSP)によりブラウザが実行を拒否し、再生できなくなります。<script>を足しても実行されません）。 -->
 <script>
 "use strict";
-// 表示文言（差し替え可能）
+// 表示文言（この<script>は変更しないこと。CSPにより標準のスクリプトだけが実行される）
 const T={wait:"待機中",connecting:"接続中…",deriving:"鍵を生成中…",playing:"受信・再生中",nosrc:"配信の開始を待っています…",
  badpw:"パスワードが違います",tamper:"データの改ざんまたは破損を検出したため停止しました。再接続してください。",
  seq:"受信の順序が崩れたため停止しました。再接続してください。",nocrypto:"暗号機能が使えません。https（または localhost）で開いてください。",

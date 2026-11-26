@@ -11,6 +11,12 @@ internal static class CoreTests
         T.Check("Loc.Parse: 改行展開", d["c"] == "1\n2");
         T.Check("Loc.Parse: コメント・節は無視", d.Count == 2);
 
+        var vh = BatonE2E.Core.Engine.ViewerTemplate.StockScriptHash;
+        var emb = BatonE2E.Core.Engine.ViewerTemplate.ReadEmbedded();
+        T.Check("視聴ページCSP: 標準のscriptは1つだけで、ハッシュ（sha256）が取れる", vh.StartsWith("'sha256-") && System.Text.RegularExpressions.Regex.Matches(emb, "<script").Count == 1);
+        T.Check("視聴ページCSP: 改行がCRLFに変わってもハッシュは同じ", BatonE2E.Core.Engine.ViewerTemplate.ScriptHashOf(emb.Replace("\n", "\r\n")) == vh);
+        T.Check("視聴ページCSP: スクリプトを書き換えるとハッシュが変わる（実行されない）", BatonE2E.Core.Engine.ViewerTemplate.ScriptHashOf(emb.Replace("\"use strict\";", "\"use strict\";alert(1);")) != vh);
+
         if (File.Exists(iniPath))
         {
             var keys = File.ReadAllLines(iniPath).Where(l => l.Length > 0 && l[0] != ';' && l.Contains('='))

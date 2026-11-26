@@ -33,6 +33,8 @@ public partial class MainWindow
     private RadioButton rbModeRelay = null!, rbModeMirror = null!;
     private Button btnGenSrc = null!, btnGenView = null!, btnProfileSave = null!, btnProfileDelete = null!;
     private TextBox tbProfileName = null!;
+    private Button btnSave = null!, btnRestore = null!, btnTemplate = null!, btnOpenFolder = null!;
+    private TextBlock tbDirty = null!;
     private ListBox lbProfiles = null!;
     private System.Windows.Controls.Primitives.Popup popProfiles = null!;
     private DateTime _profilePopupClosedAt = DateTime.MinValue;
@@ -171,16 +173,17 @@ public partial class MainWindow
         btnTestSound.Click += (_, _) => OnTestSound();
         Row("gui.set.sound", HPanel(tbSound, btnBrowseSound, btnTestSound), "gui.tip.sound", "NotifySound");
 
-        btnSave.Content = Loc.Get("gui.set.save");
-        btnRestore.Content = Loc.Get("gui.set.restore");
-        btnTemplate.Content = Loc.Get("gui.set.template");
-        btnTemplate.ToolTip = new ToolTip { Content = new TextBlock { Text = Loc.Get("gui.tip.template"), TextWrapping = TextWrapping.Wrap, MaxWidth = 420 } };
-        ToolTipService.SetShowDuration(btnTemplate, 60000);
-        btnOpenFolder.Content = Loc.Get("gui.set.openfolder");
-        tbDirty.Text = Loc.Get("gui.set.dirty");
-        btnSave.Click += OnSave;
-        btnRestore.Click += OnRestore;
+        Group("gui.grp.files");
+        btnTemplate = new Button { Content = Loc.Get("gui.set.template"), Padding = new Thickness(10, 3, 10, 3) };
         btnTemplate.Click += OnTemplate;
+        Row("", btnTemplate, "gui.tip.template");
+        btnOpenFolder = new Button { Content = Loc.Get("gui.set.openfolder"), Padding = new Thickness(10, 3, 10, 3) };
+        btnOpenFolder.Click += (_, _) =>
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(AppContext.BaseDirectory) { UseShellExecute = true }); }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException) { SetMsg(ex.Message, Msg.Err); }
+        };
+        Row("", btnOpenFolder, null);
     }
 
     /// <summary>2つの入力欄の文字を連動させる（どちらを変えても、もう一方が同じになる）。</summary>
@@ -227,7 +230,7 @@ public partial class MainWindow
     /// <summary>プロファイルの欄。中継・鏡タブの上の共通の帯に、見出し（青文字）と同じ1行で、名前の入力欄（▼で一覧）・ボタン・ⓘを置く。</summary>
     private void ProfileHeader()
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        var row = new WrapPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(new TextBlock
         {
             Text = Loc.Get("gui.grp.profile"), FontWeight = FontWeights.SemiBold, Foreground = (Brush)FindResource("AccentHoverBrush"),
@@ -264,11 +267,19 @@ public partial class MainWindow
         combo.Children.Add(popProfiles);
         row.Children.Add(combo);
 
+        btnSave = ProfileButton("gui.set.save", OnSave);
+        btnSave.SetResourceReference(StyleProperty, "PrimaryButton");
         btnProfileSave = ProfileButton("gui.profile.save", OnProfileSave);
         btnProfileDelete = ProfileButton("gui.profile.delete", OnProfileDelete);
+        btnRestore = ProfileButton("gui.set.restore", OnRestore);
+        row.Children.Add(btnSave);
         row.Children.Add(btnProfileSave);
         row.Children.Add(btnProfileDelete);
+        row.Children.Add(btnRestore);
         row.Children.Add(Info("gui.tip.profile", Array.Empty<object>()));
+        tbDirty = new TextBlock { Text = Loc.Get("gui.set.dirty"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
+        tbDirty.SetResourceReference(TextBlock.ForegroundProperty, "WarnBrush");
+        row.Children.Add(tbDirty);
         _fields["Profile"] = new List<Control> { tbProfileName };
         profileBar.Child = row;
         RefreshProfiles();
@@ -577,6 +588,12 @@ public partial class MainWindow
     private void OnRestore(object sender, RoutedEventArgs e)
     {
         ClearMarks();
+        if (ReadUi(out _).ToJson() != _set.ToJson()
+            && !ConfirmDialog.Ask(this, Loc.Get("gui.set.restore.confirm"), Loc.Get("gui.profile.title"), false))
+        {
+            SetMsg(Loc.Get("gui.set.cancelled"), Msg.Warn);
+            return;
+        }
         var b = AppSettings.LoadLatestBackup(App.ConfigPath, _curProfile);
         if (b == null) { SetMsg(Loc.Get("gui.set.nobackup"), Msg.Warn); return; }
         b.CopyGlobalsFrom(_set);

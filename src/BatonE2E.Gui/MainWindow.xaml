@@ -123,13 +123,6 @@
         </Grid>
         <Border Grid.Row="2" Margin="0,8,0,0" Padding="0,10,0,0" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0">
           <StackPanel>
-            <WrapPanel>
-              <Button x:Name="btnSave" Style="{StaticResource PrimaryButton}" Margin="0,0,8,4"/>
-              <Button x:Name="btnRestore" Margin="0,0,8,4"/>
-              <Button x:Name="btnTemplate" Margin="0,0,8,4"/>
-              <Button x:Name="btnOpenFolder" Margin="0,0,12,4"/>
-              <TextBlock x:Name="tbDirty" Foreground="{DynamicResource WarnBrush}" FontWeight="SemiBold" Margin="0,0,0,4" Visibility="Collapsed"/>
-            </WrapPanel>
             <TextBlock x:Name="tbSetMsg" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
           </StackPanel>
         </Border>

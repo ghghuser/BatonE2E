@@ -88,11 +88,6 @@ public partial class MainWindow : Window
         btnLogCopy.Click += (_, _) => CopyText(txtLog.Text);
         btnLogSave.Click += OnLogSave;
         btnLogClear.Click += (_, _) => { _logs.Clear(); txtLog.Clear(); tbLogCount.Text = Loc.Get("gui.log.lines", 0); };
-        btnOpenFolder.Click += (_, _) =>
-        {
-            try { Process.Start(new ProcessStartInfo(AppContext.BaseDirectory) { UseShellExecute = true }); }
-            catch (Exception ex) { SetMsg(ex.Message); }
-        };
         _statTimer.Tick += (_, _) => { UpdateStats(); UpdateTray(); GraphTick(); };
         _logTimer.Tick += (_, _) => FlushLogs();
         _statTimer.Start();

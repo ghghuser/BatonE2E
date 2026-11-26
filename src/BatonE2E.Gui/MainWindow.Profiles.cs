@@ -33,6 +33,7 @@ public partial class MainWindow
     {
         ClearMarks();
         var name = ProfileStore.Clean(tbProfileName.Text);
+        if (_curProfile.Length == 0 && name == CurrentProfileName) { ProfileError("gui.profile.err.empty"); return; }   // 「（なし）」のまま＝名前が未入力
         var nameIssue = ProfileStore.CheckName(name);
         if (nameIssue != null) { ProfileError(nameIssue.Key, nameIssue.Args); return; }
         if (name != _curProfile && ProfileStore.Exists(App.ConfigPath, name)

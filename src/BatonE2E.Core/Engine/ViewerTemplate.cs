@@ -1,5 +1,7 @@
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace BatonE2E.Core.Engine;
 
@@ -25,6 +27,23 @@ public static class ViewerTemplate
         using var rd = new StreamReader(s, Encoding.UTF8);
         return rd.ReadToEnd();
     }
+
+    /// <summary>改行をLFにそろえる（保存し直しでCRLFになってもスクリプトのハッシュが変わらないように）。</summary>
+    public static string NormalizeNewlines(string html) => html.Replace("\r\n", "\n");
+
+    private static readonly Regex ScriptRx = new(@"<script>(?<s>[\s\S]*?)</script>", RegexOptions.Compiled);
+
+    /// <summary>ページ内の最初の属性なし&lt;script&gt;の内容のCSPハッシュ（'sha256-…'）。無ければ null。</summary>
+    public static string? ScriptHashOf(string html)
+    {
+        var m = ScriptRx.Match(NormalizeNewlines(html));
+        if (!m.Success) return null;
+        return "'sha256-" + Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(m.Groups["s"].Value))) + "'";
+    }
+
+    private static string? _stockHash;
+    /// <summary>標準の視聴ページのスクリプトのハッシュ。CSPはこのスクリプトだけを許可する。</summary>
+    public static string StockScriptHash => _stockHash ??= ScriptHashOf(ReadEmbedded()) ?? throw new InvalidOperationException("viewer-script-missing");
 
     public const string CssSample = """
 /* viewer.css: 視聴ページの見た目を変えるCSS（ViewerPageフォルダに置く）。
