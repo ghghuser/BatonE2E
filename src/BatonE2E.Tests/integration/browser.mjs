@@ -42,12 +42,12 @@ try {
   check('エラー表示なし', st.err === '');
 
   // 停止ボタン: 押すと止まり、再生位置が進まず、WebSocketも閉じる
-  await page.click('#stopBtn');
+  await page.click('#go');   // 再生中は同じボタンが「停止」になる（トグル）
   await page.waitForTimeout(500);
   const t1 = await page.evaluate(() => document.getElementById('a').currentTime);
   await page.waitForTimeout(1500);
-  const s2 = await page.evaluate(() => ({ t: document.getElementById('a').currentTime, paused: document.getElementById('a').paused, status: document.getElementById('status').textContent, stopHidden: document.getElementById('stopBtn').hidden }));
-  check('停止ボタンで止まる（再生位置が進まない・停止表示）', s2.paused && Math.abs(s2.t - t1) < 0.05 && s2.status.includes('停止しました') && s2.stopHidden);
+  const s2 = await page.evaluate(() => ({ t: document.getElementById('a').currentTime, paused: document.getElementById('a').paused, status: document.getElementById('status').textContent }));
+  check('停止ボタンで止まる（再生位置が進まない・停止表示）', s2.paused && Math.abs(s2.t - t1) < 0.05 && s2.status.includes('停止しました'));
   // 再度「再生」で最新から再開できる
   await page.click('#go');
   const again = await until(() => document.getElementById('a').currentTime > 1.0, 45000);

@@ -36,7 +36,7 @@ public static class ProfileStore
     {
         var n = Clean(name);
         if (n.Length == 0) return new("gui.profile.err.empty", "Profile", Array.Empty<object>());
-        if (IsNoneName(n)) return new("gui.profile.err.reserved", "Profile", Array.Empty<object>());
+        if (IsNoneName(n)) return new("gui.profile.err.chars", "Profile", Array.Empty<object>());
         if (n.Length > MaxNameLength) return new("gui.profile.err.long", "Profile", new object[] { MaxNameLength });
         if (n.Any(c => c < ' ' || BadChars.Contains(c)) || n.EndsWith('.') || Reserved.Contains(n.Split('.')[0].ToUpperInvariant()))
             return new("gui.profile.err.chars", "Profile", Array.Empty<object>());

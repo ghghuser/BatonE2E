@@ -30,8 +30,9 @@
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
       <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}"/>
       <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
-      <Setter Property="Padding" Value="5,3"/>
+      <Setter Property="Padding" Value="5,2"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="MinHeight" Value="24"/>
     </Style>
 
     <!-- スクロールバー（テーマの色。細い角丸のつまみ。上下左右のボタンは無し） -->

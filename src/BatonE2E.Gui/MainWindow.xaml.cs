@@ -64,7 +64,7 @@ public partial class MainWindow : Window
         _vSrvPass = AddRow(gSource, "gui.lbl.password");
         _vSrvTls = AddRow(gSource, "gui.lbl.tls");
         _vSrvFp = AddRow(gSource, "gui.lbl.fp");
-        _vViewUrl = AddRow(gView, "gui.lbl.viewurl");
+        _vViewUrl = AddRow(gSource, "gui.lbl.viewurl");
         _vViewPass = AddRow(gView, "gui.lbl.viewpass");
 
         rbLogAll.Content = Loc.Get("gui.log.all");
@@ -209,16 +209,16 @@ public partial class MainWindow : Window
         g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var lbl = new TextBlock
         {
-            Text = Loc.Get(labelKey) + ":", Foreground = (Brush)FindResource("MutedBrush"), Margin = new Thickness(0, 1, 8, 1),
+            Text = Loc.Get(labelKey), Foreground = (Brush)FindResource("MutedBrush"), Margin = new Thickness(0, 2, 12, 2),
             TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right,
         };
         Grid.SetRow(lbl, r);
         g.Children.Add(lbl);
-        var tb = new TextBox { IsReadOnly = true, Margin = new Thickness(0, 1, 6, 1) };
+        var tb = new TextBox { IsReadOnly = true, Margin = new Thickness(0, 2, 6, 2), MinHeight = 26 };
         Grid.SetRow(tb, r);
         Grid.SetColumn(tb, 1);
         g.Children.Add(tb);
-        var b = new Button { Content = Loc.Get("gui.btn.copy"), Margin = new Thickness(0, 1, 0, 1), Padding = new Thickness(10, 3, 10, 3) };
+        var b = new Button { Content = Loc.Get("gui.btn.copy"), Margin = new Thickness(0, 2, 0, 2), Padding = new Thickness(10, 2, 10, 2) };
         b.Click += (_, _) => CopyText(tb.Text);
         Grid.SetRow(b, r);
         Grid.SetColumn(b, 2);
@@ -370,11 +370,14 @@ public partial class MainWindow : Window
         UpdateSourceCard();
     }
 
-    /// <summary>「配信ソフトに設定する値」の枠は、ミラーでは使わないので隠す（中継中は動作中のモード、停止中は設定のモード）。</summary>
+    /// <summary>「接続設定情報」の枠は、ミラーでは配信ソフト向けの行を隠す（視聴URLの行だけ残す。中継中は動作中のモード、停止中は設定のモード）。</summary>
     private void UpdateSourceCard()
     {
         var mirror = _engine?.Options.IsMirror ?? _set.IsMirror;
-        cardSource.Visibility = mirror ? Visibility.Collapsed : Visibility.Visible;
+        var urlRow = Grid.GetRow(_vViewUrl);
+        foreach (UIElement ch in gSource.Children)
+            if (Grid.GetRow(ch) != urlRow) ch.Visibility = mirror ? Visibility.Collapsed : Visibility.Visible;
+        tbBoxSource.Visibility = mirror ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private string UpstreamText(EngineStats st, EngineOptions o) => st.Upstream switch
